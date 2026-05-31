@@ -150,31 +150,54 @@ function makeInviteCode() {
   return code;
 }
 
-async function getUserProfile(uid) {
-  const userQuery = query(collection(db, 'users'), where('uid', '==', uid), limit(1));
+async function getUserProfile(uid, email = '') {
+  const userQuery = query(
+    collection(db, 'users'),
+    where('uid', '==', uid),
+    limit(1)
+  );
+
   const userResult = await getDocs(userQuery);
 
-  if (!userResult.empty) return userResult.docs[0].data();
-
-  const email = auth.currentUser?.email || '';
-  const memberQuery = query(collection(db, 'members'), where('email', '==', email), limit(1));
-  const memberResult = await getDocs(memberQuery);
-
-  if (!memberResult.empty) {
-    const data = memberResult.docs[0].data();
+  if (!userResult.empty) {
     return {
-      uid,
-      email: data.email,
-      displayName: data.displayName || 'Happy Little Bubby',
-      role: data.role === 'helper' ? 'admin' : data.role || 'member',
-      status: data.approved ? 'approved' : 'pendingApproval',
-      badges: [
-        '🧸 Helper Bubby',
-        '☁️ Guardian of the Playroom',
-        '🌈 Keeper of the Bubbles',
-        '⭐ Bubble Keeper',
-      ],
+      id: userResult.docs[0].id,
+      ...userResult.docs[0].data(),
     };
+  }
+
+  if (email) {
+    const emailQuery = query(
+      collection(db, 'users'),
+      where('email', '==', email.trim().toLowerCase()),
+      limit(1)
+    );
+
+    const emailResult = await getDocs(emailQuery);
+
+    if (!emailResult.empty) {
+      return {
+        id: emailResult.docs[0].id,
+        ...emailResult.docs[0].data(),
+      };
+    }
+
+    const helperDoc = await getDoc(doc(db, 'members', 'helper-bubby'));
+
+    if (helperDoc.exists()) {
+      const helperData = helperDoc.data();
+
+      if (
+        helperData.email &&
+        helperData.email.trim().toLowerCase() === email.trim().toLowerCase()
+      ) {
+        return {
+          id: helperDoc.id,
+          uid,
+          ...helperData,
+        };
+      }
+    }
   }
 
   return null;
@@ -441,7 +464,9 @@ function AuthGate({ setMember }) {
 
     try {
       const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-      const profile = await getUserProfile(credential.user.uid);
+      const profile = await getUserProfile(
+  credential.user.uid,
+  credential.user.email);
       if (!profile) throw new Error('Account exists, but no Happy Little Bubbies profile was found.');
       setMember(profile);
     } catch (err) {
