@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)); }
+    function isApproved() { return signedIn() && userDoc().data.status in ['approved', 'active']; }
+    function isAdmin() { return signedIn() && userDoc().data.role in ['admin', 'helperBubby']; }
+
+    match /chatUploads/{userId}/{fileName} {
+      allow read: if isApproved();
+      allow write: if isApproved() && request.auth.uid == userId && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isAdmin() || request.auth.uid == userId;
+    }
+  }
+}

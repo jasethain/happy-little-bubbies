@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myUserDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function isAdmin() { return signedIn() && myUserDoc().data.role in ['admin', 'helperBubby']; }
+    function isApproved() { return signedIn() && myUserDoc().data.status in ['approved', 'active']; }
+
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if isApproved() || request.auth.uid == userId || isAdmin();
+      allow update: if request.auth.uid == userId || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /inviteCodes/{codeId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /chatMessages/{messageId} {
+      allow read: if isApproved();
+      allow create: if isApproved() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /privateMessages/{messageId} {
+      allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
+      allow create: if isApproved() && request.resource.data.fromUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /reports/{reportId} {
+      allow create: if isApproved() && request.resource.data.reporterUid == request.auth.uid;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /mentorApplications/{docId} {
+      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if isApproved();
+      allow update, delete: if isAdmin();
+    }
+
+    match /storyRequests/{docId} {
+      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /swapListings/{docId} {
+      allow read: if isApproved();
+      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isAdmin() || resource.data.ownerUid == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    match /friendRequests/{docId} {
+      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+  }
+}
