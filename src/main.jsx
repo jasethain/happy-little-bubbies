@@ -806,28 +806,244 @@ function SoftActionButton({ children, onClick, disabled = false, danger = false,
 function SocialBabyPolish() {
   return (
     <style>{`
+      :root {
+        --social-blue: #60a5fa;
+        --social-blue-dark: #1e3a8a;
+        --social-pink: #f9a8d4;
+        --social-pink-strong: #f472b6;
+        --social-lavender: #eef2ff;
+        --social-card: rgba(255, 255, 255, 0.94);
+        --social-line: rgba(191, 219, 254, 0.78);
+        --social-shadow: 0 18px 45px rgba(30, 58, 138, 0.10);
+        --social-soft-shadow: 0 10px 26px rgba(30, 58, 138, 0.08);
+        --social-radius: 26px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background: linear-gradient(135deg, #fff1f7 0%, #eff6ff 42%, #f8fbff 100%);
+      }
+
       .app {
         min-height: 100vh;
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 22px;
+        padding: 22px;
       }
 
-      .panel {
-        max-width: 1280px;
+      .sidebar {
+        position: sticky;
+        top: 22px;
+        align-self: start;
+        height: calc(100vh - 44px);
+        overflow: auto;
+        background: rgba(255, 255, 255, 0.76) !important;
+        border: 1px solid var(--social-line) !important;
+        box-shadow: var(--social-shadow) !important;
+        border-radius: 34px !important;
+        backdrop-filter: blur(18px);
+        padding: 22px !important;
       }
 
-      .room h2 {
+      .sidebar::-webkit-scrollbar,
+      .list::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb,
+      .list::-webkit-scrollbar-thumb {
+        background: #bfdbfe;
+        border-radius: 999px;
+      }
+
+      .logo-button {
+        border-radius: 26px !important;
+        padding: 10px !important;
+        transition: background 160ms ease, transform 160ms ease;
+      }
+
+      .logo-button:hover {
+        background: rgba(239, 246, 255, 0.86) !important;
+      }
+
+      .logo-button img {
+        width: 74px !important;
+        height: 74px !important;
+        object-fit: contain;
+        border-radius: 22px !important;
+        box-shadow: 0 10px 24px rgba(244, 114, 182, 0.16);
+      }
+
+      .logo-button h1,
+      .logo-button p {
         letter-spacing: -0.03em;
       }
 
+      .sidebar nav {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .sidebar nav button {
+        min-height: 46px;
+        border-radius: 18px !important;
+        padding: 10px 14px !important;
+        font-size: 15px;
+        font-weight: 900;
+        color: #475569 !important;
+        background: transparent !important;
+        border: 1px solid transparent !important;
+      }
+
+      .sidebar nav button:hover {
+        background: #eef6ff !important;
+        color: var(--social-blue-dark) !important;
+        transform: translateY(-1px);
+      }
+
+      .sidebar nav button.active {
+        background: linear-gradient(135deg, #dbeafe, #fce7f3) !important;
+        color: var(--social-blue-dark) !important;
+        border-color: rgba(96, 165, 250, 0.32) !important;
+        box-shadow: 0 10px 24px rgba(96, 165, 250, 0.18);
+      }
+
+      .signout {
+        margin-top: 20px !important;
+        border-radius: 999px !important;
+        background: linear-gradient(135deg, #60a5fa, #93c5fd) !important;
+        color: white !important;
+        font-weight: 900 !important;
+        box-shadow: 0 14px 32px rgba(96, 165, 250, 0.28) !important;
+      }
+
+      .panel {
+        max-width: 1160px !important;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .panel > header {
+        position: sticky;
+        top: 22px;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.84) !important;
+        border: 1px solid var(--social-line) !important;
+        box-shadow: var(--social-soft-shadow) !important;
+        border-radius: 34px !important;
+        backdrop-filter: blur(18px);
+        padding: 16px 22px !important;
+        margin-bottom: 22px !important;
+      }
+
+      .panel > header h2 {
+        font-size: clamp(26px, 3vw, 38px);
+        letter-spacing: -0.045em;
+        margin: 0;
+      }
+
+      .room {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .room h2 {
+        letter-spacing: -0.045em;
+        font-size: clamp(30px, 4vw, 46px);
+        line-height: 1.02;
+        margin-bottom: 10px;
+      }
+
+      .muted {
+        color: #64748b !important;
+        font-weight: 650;
+      }
+
+      .hero,
       .profile,
       .feature-card,
       .bubble,
-      .auth-card {
-        border: 1px solid rgba(191, 219, 254, 0.72);
-        box-shadow: 0 18px 45px rgba(30, 58, 138, 0.08);
+      .auth-card,
+      .notice {
+        background: var(--social-card) !important;
+        border: 1px solid var(--social-line) !important;
+        box-shadow: var(--social-shadow) !important;
+        border-radius: var(--social-radius) !important;
+      }
+
+      .hero {
+        padding: 28px !important;
+        background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(239,246,255,.92), rgba(252,231,243,.86)) !important;
+      }
+
+      .hero h2 {
+        margin-bottom: 8px;
+      }
+
+      .cards {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+        gap: 16px !important;
+      }
+
+      .feature-card {
+        min-height: 160px;
+        text-align: left !important;
+        padding: 22px !important;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .feature-card:before {
+        content: '';
+        position: absolute;
+        inset: auto -40px -52px auto;
+        width: 120px;
+        height: 120px;
+        border-radius: 999px;
+        background: rgba(249, 168, 212, 0.22);
+      }
+
+      .feature-card span:first-child {
+        width: 50px;
+        height: 50px;
+        display: grid;
+        place-items: center;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #eff6ff, #fce7f3);
+        box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.7);
+        margin-bottom: 12px;
+      }
+
+      .feature-card h3,
+      .profile h3,
+      .bubble strong {
+        color: var(--social-blue-dark) !important;
+        letter-spacing: -0.025em;
+      }
+
+      .profile {
+        padding: 22px !important;
+        margin-bottom: 18px !important;
       }
 
       .bubble {
-        line-height: 1.55;
+        line-height: 1.58;
+        padding: 18px !important;
+        margin-bottom: 14px !important;
+      }
+
+      .list {
+        background: rgba(255, 255, 255, 0.42);
+        border-radius: 28px;
+        padding: 10px;
+        border: 1px solid rgba(191, 219, 254, 0.38);
       }
 
       button,
@@ -838,7 +1054,7 @@ function SocialBabyPolish() {
       }
 
       button {
-        transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+        transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, background 160ms ease;
       }
 
       button:not(:disabled):hover {
@@ -846,23 +1062,46 @@ function SocialBabyPolish() {
       }
 
       .primary {
-        box-shadow: 0 12px 28px rgba(96, 165, 250, 0.22);
+        background: linear-gradient(135deg, #60a5fa, #2563eb) !important;
+        color: #ffffff !important;
+        border: 0 !important;
+        border-radius: 999px !important;
+        box-shadow: 0 12px 28px rgba(96, 165, 250, 0.26) !important;
+        font-weight: 950 !important;
+      }
+
+      .primary:hover {
+        box-shadow: 0 16px 36px rgba(96, 165, 250, 0.34) !important;
       }
 
       .link-button {
-        border: 1px solid rgba(191, 219, 254, 0.78);
+        border: 1px solid rgba(191, 219, 254, 0.78) !important;
+        background: #eef6ff !important;
+        color: var(--social-blue-dark) !important;
+        border-radius: 999px !important;
+        font-weight: 900 !important;
       }
 
       input,
       textarea,
       select {
         outline: none;
+        background: #f8fbff !important;
+        border: 1px solid rgba(191, 219, 254, 0.62) !important;
+        color: #1e3a8a !important;
+        border-radius: 20px !important;
       }
 
       input:focus,
       textarea:focus,
       select:focus {
-        box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35);
+        box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35) !important;
+        border-color: #93c5fd !important;
+      }
+
+      textarea::placeholder,
+      input::placeholder {
+        color: #94a3b8;
       }
 
       .social-action-row {
@@ -871,6 +1110,8 @@ function SocialBabyPolish() {
         flex-wrap: wrap;
         align-items: center;
         margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(226, 232, 240, 0.86);
       }
 
       .post-meta {
@@ -879,18 +1120,100 @@ function SocialBabyPolish() {
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
-        margin-top: 10px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(226, 232, 240, 0.86);
       }
 
       .gallery-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 14px;
       }
 
-      @media (max-width: 900px) {
-        .panel header {
-          gap: 10px;
+      .gallery-grid .bubble {
+        padding: 8px !important;
+        border-radius: 22px !important;
+      }
+
+      .gallery-grid img {
+        transition: transform 180ms ease;
+      }
+
+      .gallery-grid button:hover img {
+        transform: scale(1.03);
+      }
+
+      .error,
+      .success {
+        border-radius: 22px !important;
+        padding: 14px 18px !important;
+        font-weight: 900 !important;
+      }
+
+      .error {
+        background: #fff1f2 !important;
+        color: #be123c !important;
+      }
+
+      .success {
+        background: #ecfdf5 !important;
+        color: #047857 !important;
+      }
+
+      /* Facebook-style message surfaces */
+      .room form {
+        border-radius: 28px !important;
+      }
+
+      .room form textarea {
+        min-height: 90px;
+      }
+
+      .auth-page {
+        background: linear-gradient(135deg, #fff1f7, #eff6ff) !important;
+      }
+
+      .auth-card {
+        backdrop-filter: blur(18px);
+      }
+
+      @media (min-width: 1180px) {
+        .room:has(.cards) {
+          max-width: 1080px;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          display: block;
+          padding: 14px;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          margin-bottom: 16px;
+          padding: 16px !important;
+        }
+
+        .sidebar nav {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .panel > header {
+          position: static;
+          border-radius: 26px !important;
+        }
+
+        .panel header .logo-button {
+          display: none !important;
+        }
+
+        .room {
+          max-width: none;
         }
 
         .social-action-row {
@@ -899,6 +1222,26 @@ function SocialBabyPolish() {
 
         .social-action-row button {
           flex: 1 1 auto;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .sidebar nav {
+          grid-template-columns: 1fr;
+        }
+
+        .cards {
+          grid-template-columns: 1fr !important;
+        }
+
+        .gallery-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .profile,
+        .bubble,
+        .hero {
+          border-radius: 22px !important;
         }
       }
     `}</style>
