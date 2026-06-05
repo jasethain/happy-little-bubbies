@@ -651,7 +651,7 @@ async function uploadChatPhoto(file, folder, uid) {
 }
 
 
-function ChatRoom({ member }) {
+function ChatRoom({ member, onPrivateMessageUser }) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [chatError, setChatError] = useState('');
@@ -709,10 +709,21 @@ function ChatRoom({ member }) {
     }
   }
 
+  function privateMessageFromChat(event, chat) {
+    event.preventDefault();
+
+    if (!chat?.senderUid || chat.senderUid === member.uid) return;
+
+    onPrivateMessageUser?.({
+      uid: chat.senderUid,
+      displayName: chat.senderName || 'Happy Little Bubby',
+    });
+  }
+
   return (
     <section className="room">
       <h2>Chat</h2>
-      <p className="muted">Live community chat for invited members.</p>
+      <p className="muted">Live community chat for invited members. Right-click a member name to send them a private message.</p>
       {chatError && <p className="error">{chatError}</p>}
 
       <div className="list" style={{ maxHeight: 460, overflowY: 'auto', marginBottom: 18 }}>
@@ -735,9 +746,28 @@ function ChatRoom({ member }) {
                 border: mine ? '2px solid #f9a8d4' : '1px solid rgba(255,255,255,.9)',
               }}
             >
-              <strong>{chat.senderName || 'Little Bubby'}</strong>
+              <strong
+                onContextMenu={(event) => privateMessageFromChat(event, chat)}
+                title={mine ? 'This is you' : 'Right-click to private message'}
+                style={{
+                  cursor: mine ? 'default' : 'context-menu',
+                  userSelect: 'none',
+                }}
+              >
+                {chat.senderName || 'Little Bubby'}
+              </strong>
               {chat.senderRole === 'admin' && (
                 <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>🧸 Helper Bubby</span>
+              )}
+              {!mine && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onPrivateMessageUser?.({ uid: chat.senderUid, displayName: chat.senderName || 'Happy Little Bubby' })}
+                  style={{ marginLeft: 10, padding: '4px 10px', fontSize: 12 }}
+                >
+                  Private message
+                </button>
               )}
               {chat.text && <p>{chat.text}</p>}
               {chat.imageUrl && (
@@ -770,12 +800,40 @@ function ChatRoom({ member }) {
   );
 }
 
-function InboxRoom({ member }) {
-  const [toEmail, setToEmail] = useState('');
+function InboxRoom({ member, initialRecipient }) {
+  const [selectedRecipientUid, setSelectedRecipientUid] = useState(initialRecipient?.uid || '');
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [body, setBody] = useState('');
   const [messages, setMessages] = useState([]);
   const [inboxStatus, setInboxStatus] = useState('');
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (initialRecipient?.uid) {
+      setSelectedRecipientUid(initialRecipient.uid);
+      setInboxStatus(`Private message ready for ${initialRecipient.displayName || 'this member'}.`);
+    }
+  }, [initialRecipient?.uid]);
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedUsers = snapshot.docs
+          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+          .filter((user) => user.uid && user.uid !== member.uid)
+          .filter((user) => user.status === 'approved' || user.approved === true)
+          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+        setAvailableUsers(loadedUsers);
+      },
+      (err) => setInboxStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
 
   useEffect(() => {
     const inboxQuery = query(collection(db, 'privateMessages'), orderBy('createdAt', 'desc'));
@@ -786,7 +844,6 @@ function InboxRoom({ member }) {
         const allMessages = snapshot.docs.map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }));
         const myMessages = allMessages.filter((msg) => msg.toUid === member.uid || msg.fromUid === member.uid);
         setMessages(myMessages);
-        setInboxStatus('');
       },
       (err) => setInboxStatus(err.message || 'Could not load private inbox.')
     );
@@ -805,72 +862,59 @@ function InboxRoom({ member }) {
 
   async function sendPrivateMessage(event) {
     event.preventDefault();
-    const cleanEmail = toEmail.trim().toLowerCase();
     const cleanBody = body.trim();
-    if (!cleanEmail || !cleanBody || sending) return;
+    if (!selectedRecipientUid || !cleanBody || sending) return;
 
     setSending(true);
     setInboxStatus('');
 
     try {
-      const userQuery = query(collection(db, 'users'), where('email', '==', cleanEmail), limit(1));
-      const userResult = await getDocs(userQuery);
+      const recipient = availableUsers.find((user) => user.uid === selectedRecipientUid);
 
-      let recipient = null;
-
-      if (!userResult.empty) {
-        recipient = userResult.docs[0].data();
-      } else {
-        const memberQuery = query(collection(db, 'members'), where('email', '==', cleanEmail), limit(1));
-        const memberResult = await getDocs(memberQuery);
-        if (!memberResult.empty) {
-          const data = memberResult.docs[0].data();
-          recipient = {
-            uid: memberResult.docs[0].id,
-            email: data.email,
-            displayName: data.displayName || cleanEmail,
-          };
-        }
-      }
-
-      if (!recipient) throw new Error('No member found with that email address.');
+      if (!recipient) throw new Error('Please choose a valid member from the list.');
 
       await addDoc(collection(db, 'privateMessages'), {
         fromUid: member.uid,
-        fromEmail: member.email,
         fromName: member.displayName,
         toUid: recipient.uid,
-        toEmail: recipient.email,
-        toName: recipient.displayName || recipient.email,
+        toName: recipient.displayName || 'Happy Little Bubby',
         body: cleanBody,
         read: false,
         createdAt: serverTimestamp(),
       });
 
-      setToEmail('');
+      setSelectedRecipientUid('');
       setBody('');
       setInboxStatus('Private message sent.');
     } catch (err) {
       setInboxStatus(err.message || 'Private message could not be sent.');
     } finally {
       setSending(false);
-      setUploadingPhoto(false);
     }
   }
 
   return (
     <section className="room">
       <h2>Private Inbox</h2>
-      <p className="muted">Send private messages to other approved members by email address.</p>
+      <p className="muted">Send private messages to other approved members by name.</p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
         <h3>Send a private message</h3>
         <form className="form compact" onSubmit={sendPrivateMessage}>
-          <input value={toEmail} onChange={(e) => setToEmail(e.target.value)} placeholder="Recipient email address" type="email" />
+          <select value={selectedRecipientUid} onChange={(e) => setSelectedRecipientUid(e.target.value)}>
+            <option value="">Choose a member</option>
+            {availableUsers.map((user) => (
+              <option key={user.uid} value={user.uid}>
+                {user.displayName || 'Happy Little Bubby'}
+              </option>
+            ))}
+          </select>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your private message" />
-          <button type="submit" disabled={sending}>{sending ? 'Sending...' : 'Send private message'}</button>
+          <button type="submit" disabled={sending || !selectedRecipientUid || !body.trim()}>
+            {sending ? 'Sending...' : 'Send private message'}
+          </button>
         </form>
-        {inboxStatus && <p className={inboxStatus.includes('sent') ? 'success' : 'error'}>{inboxStatus}</p>}
+        {inboxStatus && <p className={inboxStatus.includes('sent') || inboxStatus.includes('ready') ? 'success' : 'error'}>{inboxStatus}</p>}
       </div>
 
       <h3>Messages</h3>
@@ -886,14 +930,14 @@ function InboxRoom({ member }) {
           const sentByMe = msg.fromUid === member.uid;
           return (
             <div className="bubble" key={msg.id} onClick={() => markMessageRead(msg)}>
-              <strong>{sentByMe ? `To: ${msg.toName || msg.toEmail}` : `From: ${msg.fromName || msg.fromEmail}`}</strong>
+              <strong>{sentByMe ? `To: ${msg.toName || 'Happy Little Bubby'}` : `From: ${msg.fromName || 'Happy Little Bubby'}`}</strong>
               {!sentByMe && msg.read === false && <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>NEW</span>}
               <p>{msg.body}</p>
 
               {msg.callUrl && (
                 <div className="success" style={{ marginTop: 12 }}>
                   <strong>{msg.callType === 'audio' ? '📞 Audio call' : '🎥 Video call'}</strong>
-                  <p>{msg.fromName} invited you to join a private call.</p>
+                  <p>{msg.fromName || 'A member'} invited you to join a private call.</p>
                   <a
                     href={msg.callUrl}
                     target="_blank"
@@ -4423,6 +4467,7 @@ function AppShell({ member, setMember }) {
   const counts = useNotificationCounts(member);
   const rooms = getRooms(member);
   const [room, setRoom] = useState(() => roomFromPath(window.location.pathname));
+  const [privateMessageRecipient, setPrivateMessageRecipient] = useState(null);
   const active = rooms.find((item) => item.id === room) || rooms[0];
   const bubbleTheme = getBubbleTheme(member.favouriteColour);
 
@@ -4446,6 +4491,12 @@ function AppShell({ member, setMember }) {
 
     setRoom(nextRoom);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function openPrivateMessage(user) {
+    if (!user?.uid || user.uid === member.uid) return;
+    setPrivateMessageRecipient(user);
+    navigateTo('inbox');
   }
 
   return (
@@ -4494,8 +4545,8 @@ function AppShell({ member, setMember }) {
         </header>
 
         {room === 'home' && <HomeRoom setRoom={navigateTo} member={member} counts={counts} />}
-        {room === 'chat' && <ChatRoom member={member} />}
-        {room === 'inbox' && <InboxRoom member={member} />}
+        {room === 'chat' && <ChatRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
+        {room === 'inbox' && <InboxRoom member={member} initialRecipient={privateMessageRecipient} />}
         {room === 'friends' && <FriendsRoom member={member} />}
         {room === 'friendChat' && <FriendChatRoom member={member} />}
         {room === 'notifications' && <NotificationsRoom member={member} counts={counts} />}
