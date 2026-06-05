@@ -977,7 +977,7 @@ function FriendsRoom({ member }) {
         createdBy: member.uid,
         createdByName: member.displayName,
         createdByEmail: member.email,
-        createdByRole: member.role,
+        createdByRole: member?.role || "member",
         source: 'member-invite',
       });
 
