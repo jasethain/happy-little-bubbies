@@ -96,7 +96,7 @@ const baseRooms = [
   { id: 'members', label: 'Bubble Family', icon: makeBabyIcon('🫧') },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Bottle Alerts', icon: makeBabyIcon('🍼') },
-  { id: 'mentors', label: 'Rainbow Helpers', icon: makeBabyIcon('🌈') },
+  { id: 'mentors', label: 'Mentors', icon: makeBabyIcon('🧚') },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
   { id: 'safety', label: 'Diaper Cops', icon: makeBabyIcon('🚼') },
@@ -179,6 +179,51 @@ function makeInviteCode() {
     code += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return code;
+}
+
+const WELCOME_PHRASES = [
+  'I love when you log back in.',
+  'You’re so talented.',
+  'I hope you had some great dreams.',
+  'You’re very intelligent for a little one.',
+  'I’m so glad you’re here.',
+  'You make me so proud.',
+  'You win me over every day.',
+  'You’re so special.',
+  'We are so lucky to have you.',
+  'You’re so much fun.',
+  'You’re so beautiful little one.',
+  'You are so good at using this app.',
+  'I hope your diaper’s clean.',
+  'You’re so fantastic.',
+  'You colour my world.',
+  'You’re one of a kind.',
+  'You’re a delightful little one.',
+  'Remember little one, you can do anything you put your mind to.',
+  'You make my days sweeter.',
+  'You make me smile you little cutie patootie.',
+  'I love that you belong here.',
+  'You are worth so much to me.',
+  'You’re the best.',
+  'You rock.',
+  'You make a difference.',
+  'The world is a much nicer place with you in it.',
+  'You’re so fun to play with.',
+  'You shine every day.',
+  'You brighten my life.',
+  'You’re amazing.',
+  'You’re awesome.',
+  'You are a wonderful part of this community.',
+  'I love that you never give up.',
+  'You’re so fun-loving.',
+  'You make grey skies disappear.',
+  'You’re doing great things.',
+  'You’re unbelievable.',
+  'We love you.',
+];
+
+function pickWelcomePhrase() {
+  return WELCOME_PHRASES[Math.floor(Math.random() * WELCOME_PHRASES.length)];
 }
 
 
@@ -850,6 +895,7 @@ function AuthGate({ setMember }) {
 
 function HomeRoom({ setRoom, member, counts }) {
   const [setupStatus, setSetupStatus] = useState('');
+  const [welcomePhrase] = useState(() => pickWelcomePhrase());
 
   const cards = [
     ['🔤', 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
@@ -858,6 +904,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['🫧', 'Bubble Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Bottle Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
+    ['🧚', 'Mentors', 'Friendly helpers for confidence and community support.', 'mentors', 0],
     ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
 
@@ -874,8 +921,9 @@ function HomeRoom({ setRoom, member, counts }) {
   return (
     <section className="room">
       <div className="hero">
-        <h2>Welcome, {member.displayName}.</h2>
-              </div>
+        <h2>{welcomePhrase}</h2>
+        <p className="muted">Welcome back, {member.displayName}.</p>
+      </div>
 
       {member.role === 'admin' && (
         <div className="profile" style={{ marginBottom: 20 }}>
@@ -1898,18 +1946,30 @@ function FriendsRoom({ member }) {
 
   async function acceptFriendRequest(request) {
     try {
+      const friendshipId = chatIdFor(request.fromUid, request.toUid);
+      const fromName = request.fromName || 'Happy Little Bubby';
+      const toName = request.toName || member.displayName || 'Happy Little Bubby';
+      const friendship = {
+        userIds: [request.fromUid, request.toUid],
+        users: [
+          { uid: request.fromUid, displayName: fromName },
+          { uid: request.toUid, displayName: toName },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'friends', friendshipId), friendship, { merge: true });
+
       await updateDoc(doc(db, 'friendRequests', request.id), {
         status: 'accepted',
         acceptedAt: serverTimestamp(),
+        friendshipId,
       });
 
-      await addDoc(collection(db, 'friends'), {
-        userIds: [request.fromUid, request.toUid],
-        users: [
-          { uid: request.fromUid, email: request.fromEmail, displayName: request.fromName },
-          { uid: request.toUid, email: request.toEmail, displayName: request.toName },
-        ],
-        createdAt: serverTimestamp(),
+      setFriends((current) => {
+        if (current.some((friend) => friend.id === friendshipId || friend.userIds?.includes(request.fromUid))) return current;
+        return [{ id: friendshipId, ...friendship }, ...current];
       });
 
       setStatus('Friend request accepted.');
@@ -2160,7 +2220,7 @@ function FriendChatRoom({ member }) {
               friendshipId: friend.id,
               chatId: chatIdFor(member.uid, other?.uid || ''),
               uid: other?.uid,
-              email: other?.email,
+              email: other?.email || '',
               displayName: other?.displayName || 'Friend',
             };
           })
@@ -4210,7 +4270,7 @@ function MentorLoungeRoom({ member }) {
       toUid: request.requesterUid,
       toEmail: request.requesterEmail,
       toName: request.requesterName,
-      body: `${member.displayName} has accepted your Mentor Lounge request for ${request.needHelpWith}.`,
+      body: `${member.displayName} has accepted your Mentors request for ${request.needHelpWith}.`,
       read: false,
       createdAt: serverTimestamp(),
     });
@@ -4263,9 +4323,9 @@ function MentorLoungeRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Mentor Lounge</h2>
+      <h2>🧚 Mentors</h2>
       <p className="muted">
-        Mentor Lounge is for friendship, encouragement, confidence, and community support. Mentors are not counsellors, medical professionals, or legal advisors.
+        Mentors is for friendship, encouragement, confidence, and community support. Mentors are not counsellors, medical professionals, or legal advisors.
       </p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
