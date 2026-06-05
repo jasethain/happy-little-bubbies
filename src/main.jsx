@@ -4371,6 +4371,7 @@ function ProfileRoom({ member, setMember }) {
     'Agender',
     'Bigender',
     'Genderfluid',
+    'Diaper Sexual',
     'Transgender female',
     'Transgender male',
     'Transgender',
@@ -4520,7 +4521,7 @@ function ProfileRoom({ member, setMember }) {
         profileUpdatedAt: serverTimestamp(),
       };
 
-      await updateDoc(doc(db, 'users', member.uid), updatedProfile);
+      await setDoc(doc(db, 'users', member.uid), updatedProfile, { merge: true });
 
       await setDoc(doc(db, 'presence', member.uid), {
         uid: member.uid,
