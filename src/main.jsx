@@ -124,13 +124,14 @@ const baseRooms = [
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
   { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
+  { id: 'games', label: 'Games', icon: makeBabyIcon('🎮') },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
 function getRooms(member) {
   if (member?.role === 'admin') {
-    return [...baseRooms, { id: 'admin', label: 'Head Helper Bubby', icon: makeBabyIcon('👑') }];
+    return [...baseRooms, { id: 'admin', label: 'Head Helper', icon: makeBabyIcon('👑') }];
   }
   return baseRooms;
 }
@@ -150,6 +151,7 @@ const routeMap = {
   safety: '/no-naughty-business',
   profile: '/my-bubble',
   memory: '/memory-book',
+  games: '/games',
   admin: '/admin-console',
 };
 
@@ -578,7 +580,7 @@ async function getUserProfile(uid, email = '') {
           role: helperData.role || 'admin',
           status: helperData.status || 'approved',
           approved: true,
-          badges: helperData.badges || ['🧸 Helper Bubby', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'],
+          badges: helperData.badges || ['🧸 Helper', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'],
         };
 
         await setDoc(uidDocRef, accountProfile, { merge: true });
@@ -927,7 +929,7 @@ function AuthGate({ setMember }) {
       if (!usersAlreadyExist && cleanEmail === FIRST_HELPER_EMAIL) {
         role = 'admin';
         status = 'approved';
-        badges = ['🧸 Helper Bubby', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'];
+        badges = ['🧸 Helper', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'];
       } else {
         inviteDoc = await verifyInviteCode(inviteCode);
         if (!inviteDoc) throw new Error('Invite code is invalid, already used, or not approved.');
@@ -999,7 +1001,7 @@ function AuthGate({ setMember }) {
           {isRegistering && (
             <>
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" />
-              <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Invite code, leave blank only for first Helper Bubby" />
+              <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Invite code, leave blank only for first Helper" />
             </>
           )}
 
@@ -1031,9 +1033,10 @@ function HomeRoom({ setRoom, member, counts }) {
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     [<MentorFairyIcon size={62} />, 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
-    [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper Bubby admins.', 'safety', 0],
+    [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
+    ['🎮', 'Games', 'Play Diaper Dash and more little arcade games.', 'games', 0],
     ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
-    ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
+    ['👑', 'Head Helper', 'Helper control room.', 'admin', 0],
   ];
 
   async function runSetup() {
@@ -1055,7 +1058,7 @@ function HomeRoom({ setRoom, member, counts }) {
 
       {member.role === 'admin' && (
         <div className="profile" style={{ marginBottom: 20 }}>
-          <h3>🧸 Helper Bubby Setup</h3>
+          <h3>🧸 Helper Setup</h3>
           <p className="muted">Create Firestore collections for the next stages.</p>
           <button className="primary" onClick={runSetup}>Create Firestore collections</button>
           {setupStatus && <p className={setupStatus.startsWith('Done') ? 'success' : 'muted'}>{setupStatus}</p>}
@@ -1480,7 +1483,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
                 {chat.senderName || 'Little Bubby'}
               </strong>
               {chat.senderRole === 'admin' && (
-                <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>🧸 Helper Bubby</span>
+                <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>🧸 Helper</span>
               )}
               {!mine && (
                 <button
@@ -2660,7 +2663,7 @@ function FriendsRoom({ member }) {
               <div>
                 <h2 style={{ marginBottom: 6 }}>{viewRequestProfile.displayName || 'Happy Little Bubby'}</h2>
                 <p className="muted" style={{ margin: 0 }}>
-                  {viewRequestProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                  {viewRequestProfile.role === 'admin' ? 'Helper' : 'Member'}
                 </p>
               </div>
             </div>
@@ -2695,7 +2698,7 @@ function FriendsRoom({ member }) {
 
             <div className="badges" style={{ marginTop: 12 }}>
               {(viewRequestProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
-              {viewRequestProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+              {viewRequestProfile.role === 'admin' && <span>🛠️ Helper Admin</span>}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
@@ -3737,7 +3740,7 @@ function StoryCornerRoom({ member }) {
       (!request.privateRequest && member.role === 'admin');
 
     if (!canManage) {
-      setStatus('Only the accepter, requester, or a Helper Bubby admin can manage this story request.');
+      setStatus('Only the accepter, requester, or a Helper admin can manage this story request.');
       return;
     }
 
@@ -3866,7 +3869,7 @@ function StoryCornerRoom({ member }) {
 
   async function deleteComment(story, comment) {
     if (comment.authorUid !== member.uid && member.role !== 'admin') {
-      setStatus('Only the comment author or a Helper Bubby admin can delete this comment.');
+      setStatus('Only the comment author or a Helper admin can delete this comment.');
       return;
     }
 
@@ -3889,7 +3892,7 @@ function StoryCornerRoom({ member }) {
 
   async function deleteStory(story) {
     if (story.authorUid !== member.uid && member.role !== 'admin') {
-      setStatus('Only the author or a Helper Bubby admin can delete this story.');
+      setStatus('Only the author or a Helper admin can delete this story.');
       return;
     }
 
@@ -3904,7 +3907,7 @@ function StoryCornerRoom({ member }) {
 
   async function togglePin(story) {
     if (member.role !== 'admin') {
-      setStatus('Only Helper Bubby admins can pin stories.');
+      setStatus('Only Helper admins can pin stories.');
       return;
     }
 
@@ -4096,7 +4099,7 @@ function StoryCornerRoom({ member }) {
 
           return (
             <article className="bubble" key={story.id} style={{ marginBottom: 20 }}>
-              {story.pinned && <p className="success">📌 Pinned by Helper Bubby</p>}
+              {story.pinned && <p className="success">📌 Pinned by Helper</p>}
               <strong>{story.authorName || 'Little Bubby'}</strong>
               <p className="muted">{formatDate(story.createdAt)}</p>
 
@@ -4554,7 +4557,7 @@ function AdminConsole({ member }) {
         roleUpdatedAt: serverTimestamp(),
         roleUpdatedBy: member.uid,
       });
-      setStatus(`${user.displayName || user.email} is now a Helper Bubby admin.`);
+      setStatus(`${user.displayName || user.email} is now a Helper admin.`);
     } catch (err) {
       setStatus(err.message || 'Could not update role.');
     }
@@ -4577,7 +4580,7 @@ function AdminConsole({ member }) {
     }
 
     if (uidToDelete === member.uid) {
-      setStatus('You cannot delete your own Helper Bubby admin account while you are signed in.');
+      setStatus('You cannot delete your own Helper admin account while you are signed in.');
       return;
     }
 
@@ -4675,14 +4678,14 @@ Important: this does not delete the Firebase Authentication login. To fully bloc
     return (
       <section className="room">
         <h2>Admin Console</h2>
-        <p className="error">Only Helper Bubby admins can enter this room.</p>
+        <p className="error">Only Helper admins can enter this room.</p>
       </section>
     );
   }
 
   return (
     <section className="room">
-      <h2>Helper Bubby Admin Console</h2>
+      <h2>Helper Admin Console</h2>
       <p className="muted">Approve members, create invite codes, view reports, and watch the little lights blink.</p>
 
       {status && <p className={status.includes('Could') ? 'error' : 'success'}>{status}</p>}
@@ -4760,7 +4763,7 @@ Important: this does not delete the Firebase Authentication login. To fully bloc
             <p className="muted">Role: {user.role || 'member'} | Status: {user.status || 'unknown'}</p>
             <button className="primary" onClick={() => approveUser(user)}>Approve</button>
             <button className="link-button" onClick={() => suspendUser(user)}>Suspend</button>
-            {user.role !== 'admin' && <button className="link-button" onClick={() => makeAdmin(user)}>Make Helper Bubby Admin</button>}
+            {user.role !== 'admin' && <button className="link-button" onClick={() => makeAdmin(user)}>Make Helper Admin</button>}
           </div>
         ))}
       </div>
@@ -4985,7 +4988,7 @@ function MentorLoungeRoom({ member }) {
       request.acceptedByUid === member.uid;
 
     if (!canManage) {
-      setStatus('Only the requester, mentor, or Helper Bubby admin can update this request.');
+      setStatus('Only the requester, mentor, or Helper admin can update this request.');
       return;
     }
 
@@ -5001,7 +5004,7 @@ function MentorLoungeRoom({ member }) {
 
   async function updateMentorProfile(profile, nextStatus) {
     if (member.role !== 'admin') {
-      setStatus('Only Helper Bubby admins can approve mentor profiles.');
+      setStatus('Only Helper admins can approve mentor profiles.');
       return;
     }
 
@@ -5319,7 +5322,7 @@ function NaughtyBabyRoom({ member }) {
 
   async function updateReport(report, nextStatus) {
     if (member.role !== 'admin') {
-      setStatus('Only Helper Bubby admins can update reports.');
+      setStatus('Only Helper admins can update reports.');
       return;
     }
 
@@ -5342,7 +5345,7 @@ function NaughtyBabyRoom({ member }) {
           <p className="muted">Report a Naughty Baby.</p>
         </div>
       </div>
-      <p className="muted">Tell a Helper Bubby admin about behaviour that needs attention. The reported baby is required so the team can action it properly.</p>
+      <p className="muted">Tell a Helper admin about behaviour that needs attention. The reported baby is required so the team can action it properly.</p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
         <h3>🚨 Naughty Baby Report</h3>
@@ -5684,6 +5687,69 @@ function MemoryBookRoom({ member }) {
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+const DIAPER_DASH_GAME_HTML = '<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8" />\n  <meta name="viewport" content="width=device-width,initial-scale=1" />\n  <title>Diaper Dash V4.5</title>\n  <style>\n    :root {\n      --ink:#1e3a8a;\n      --pink:#fb8cc7;\n      --blue:#60a5fa;\n    }\n    * { box-sizing:border-box; }\n    body {\n      margin:0;\n      min-height:100vh;\n      display:grid;\n      place-items:center;\n      background:\n        radial-gradient(circle at 12% 12%, rgba(255,255,255,.95), transparent 28%),\n        radial-gradient(circle at 88% 16%, rgba(252,231,243,.95), transparent 28%),\n        linear-gradient(135deg,#fff1f8,#eaf5ff 58%,#fff7ed);\n      font-family:Arial, Helvetica, sans-serif;\n      color:var(--ink);\n    }\n    .shell {\n      width:min(96vw, 920px);\n      padding:18px;\n      border-radius:32px;\n      background:rgba(255,255,255,.91);\n      border:3px solid #bfdbfe;\n      box-shadow:0 24px 70px rgba(30,58,138,.16);\n    }\n    h1 {\n      margin:0;\n      text-align:center;\n      font-size:clamp(30px,6vw,56px);\n      color:#ec4899;\n      text-shadow:2px 3px 0 #dbeafe;\n    }\n    .subtitle {\n      margin:4px 0 14px;\n      text-align:center;\n      font-weight:900;\n      opacity:.78;\n    }\n    .hud {\n      display:flex;\n      justify-content:center;\n      gap:9px;\n      flex-wrap:wrap;\n      margin-bottom:12px;\n    }\n    .pill {\n      background:linear-gradient(135deg,#eff6ff,#fdf2f8);\n      border:2px solid #dbeafe;\n      border-radius:999px;\n      padding:8px 12px;\n      font-weight:900;\n      box-shadow:0 8px 16px rgba(30,58,138,.08);\n    }\n    canvas {\n      width:100%;\n      display:block;\n      background:#fffafc;\n      border-radius:26px;\n      border:5px solid #bfdbfe;\n      box-shadow:inset 0 0 0 5px #fff, 0 14px 30px rgba(30,58,138,.08);\n      touch-action:none;\n    }\n    .controls {\n      display:grid;\n      grid-template-columns:repeat(3,72px);\n      justify-content:center;\n      gap:9px;\n      margin-top:14px;\n    }\n    button {\n      border:0;\n      border-radius:18px;\n      padding:14px 10px;\n      font-size:24px;\n      font-weight:900;\n      background:linear-gradient(135deg,#dbeafe,#fce7f3);\n      color:var(--ink);\n      cursor:pointer;\n      box-shadow:0 9px 18px rgba(30,58,138,.13);\n    }\n    button:active { transform:translateY(1px); }\n    .wide {\n      grid-column:1/4;\n      border-radius:999px;\n      font-size:16px;\n      background:linear-gradient(135deg,#60a5fa,#f472b6);\n      color:white;\n    }\n    .hint {\n      text-align:center;\n      margin:10px 0 0;\n      font-size:14px;\n      opacity:.76;\n      font-weight:800;\n    }\n  </style>\n</head>\n<body>\n  <main class="shell">\n    <h1>🍼 Diaper Dash V4.5</h1>\n    <p class="subtitle">Poo nursery is now blocked for the diaper, while poos can spawn and leave from the middle.</p>\n    <div class="hud">\n      <span class="pill">Score: <b id="score">0</b></span>\n      <span class="pill">Lives: <b id="lives">3</b></span>\n      <span class="pill">Level: <b id="level">1</b></span>\n      <span class="pill">Power: <b id="power">0</b></span>\n      <span class="pill">Best: <b id="best">0</b></span>\n      <span class="pill" id="status">Ready!</span>\n    </div>\n    <canvas id="game" width="760" height="760"></canvas>\n\n    <div class="controls">\n      <span></span><button id="up">⬆️</button><span></span>\n      <button id="left">⬅️</button><button id="down">⬇️</button><button id="right">➡️</button>\n      <button id="restart" class="wide">Restart Game</button>\n    </div>\n    <p class="hint">Arrow keys / WASD. Power bottles turn poo blue and safe. Teddy bears give bonus points.</p>\n  </main>\n\n<script>\nconst canvas = document.getElementById("game");\nconst ctx = canvas.getContext("2d");\n\nconst scoreEl = document.getElementById("score");\nconst livesEl = document.getElementById("lives");\nconst levelEl = document.getElementById("level");\nconst powerEl = document.getElementById("power");\nconst bestEl = document.getElementById("best");\nconst statusEl = document.getElementById("status");\n\nconst tile = 40;\nconst COLS = 19;\nconst ROWS = 19;\n\nconst maps = [\n[\n"###################",\n"#........#........#",\n"#.###.##.#.##.###.#",\n"#B#.............#B#",\n"#.###.#.###.#.###.#",\n"#.....#..#..#.....#",\n"#####.##.#.##.#####",\n"    #.#.....#.#    ",\n"#####.# PPP #.#####",\n"     ...PPP...     ",\n"#####.# PPP #.#####",\n"    #.#.....#.#    ",\n"#####.#.###.#.#####",\n"#........#........#",\n"#.###.##.#.##.###.#",\n"#B..#....D....#..B#",\n"###.#.#.###.#.#.###",\n"#.....#.....#.....#",\n"###################"\n],\n[\n"###################",\n"#B......#......B..#",\n"#.####..#..####.#.#",\n"#......###......#.#",\n"###.##.....##.###.#",\n"#...#..###..#.....#",\n"#.#.#.#...#.#.###.#",\n"#.#...#PPP#...#...#",\n"#.#####PPP#####.#.#",\n"#.......PPP.....#.#",\n"#.#####.#.#####.#.#",\n"#.#...#.#.#...#...#",\n"#.#.#.#...#.#.###.#",\n"#...#..###..#.....#",\n"###.##.....##.###.#",\n"#......###..D...#B#",\n"#.####..#..####.#.#",\n"#B......#.........#",\n"###################"\n],\n[\n"###################",\n"#B...............B#",\n"#.###.#######.###.#",\n"#...#...#D..#...#.#",\n"###.#.#.#.#.#.#.#.#",\n"#.....#...#...#...#",\n"#.#####.###.#####.#",\n"#.......###.......#",\n"###.###.PPP.###.###",\n"   ...#.PPP.#...   ",\n"###.###.PPP.###.###",\n"#.......###.......#",\n"#.#####.###.#####.#",\n"#.....#...#...#...#",\n"###.#.#.#.#.#.#.#.#",\n"#...#...#...#...#.#",\n"#.###.#######.###.#",\n"#B...............B#",\n"###################"\n]\n];\n\nlet map, diaper, poos, score, lives, level, tick, lastStep, powerTicks, gameOver, best, bonusBear, audioCtx, spawnPoint, pooSpawnPoints;\n\nbest = Number(localStorage.getItem("diaperDashV41Best") || 0);\nbestEl.textContent = best;\n\nfunction beep(freq=440, duration=0.06, type="sine", volume=0.035) {\n  try {\n    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();\n    const osc = audioCtx.createOscillator();\n    const gain = audioCtx.createGain();\n    osc.type = type;\n    osc.frequency.value = freq;\n    gain.gain.value = volume;\n    osc.connect(gain);\n    gain.connect(audioCtx.destination);\n    osc.start();\n    osc.stop(audioCtx.currentTime + duration);\n  } catch {}\n}\n\nfunction cuteFartSound() {\n  try {\n    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();\n    const now = audioCtx.currentTime;\n\n    const osc = audioCtx.createOscillator();\n    const gain = audioCtx.createGain();\n    const filter = audioCtx.createBiquadFilter();\n\n    osc.type = "sawtooth";\n    osc.frequency.setValueAtTime(135, now);\n    osc.frequency.exponentialRampToValueAtTime(62, now + 0.16);\n\n    filter.type = "lowpass";\n    filter.frequency.setValueAtTime(420, now);\n    filter.frequency.exponentialRampToValueAtTime(160, now + 0.16);\n\n    gain.gain.setValueAtTime(0.0001, now);\n    gain.gain.exponentialRampToValueAtTime(0.065, now + 0.025);\n    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);\n\n    osc.connect(filter);\n    filter.connect(gain);\n    gain.connect(audioCtx.destination);\n\n    osc.start(now);\n    osc.stop(now + 0.19);\n\n    setTimeout(() => beep(520, 0.035, "triangle", 0.02), 115);\n  } catch {}\n}\n\nfunction cloneLevelMap() {\n  const chosen = maps[(level - 1) % maps.length];\n  map = chosen.map(row => row.split(""));\n  const spawns = parseSpawnMarkers();\n  spawnPoint = spawns.diaperSpawn;\n  pooSpawnPoints = spawns.pooSpawns;\n}\n\nfunction parseSpawnMarkers() {\n  const pooSpawns = [];\n  let diaperSpawn = null;\n\n  for (let y = 0; y < ROWS; y++) {\n    for (let x = 0; x < COLS; x++) {\n      if (map[y][x] === "D") {\n        diaperSpawn = { x, y };\n        map[y][x] = " ";\n      }\n\n      if (map[y][x] === "P") {\n        pooSpawns.push({ x, y });\n        map[y][x] = " ";\n      }\n    }\n  }\n\n  if (!diaperSpawn) {\n    diaperSpawn = findFallbackSpawn();\n  }\n\n  return { diaperSpawn, pooSpawns };\n}\n\nfunction findFallbackSpawn() {\n  for (let y = ROWS - 2; y >= 1; y--) {\n    for (let x = 1; x < COLS - 1; x++) {\n      if (map[y][x] !== "#" && hasOpenNeighbour(x, y)) {\n        return { x, y };\n      }\n    }\n  }\n\n  return { x: 1, y: 1 };\n}\n\nfunction hasOpenNeighbour(x, y) {\n  return [\n    [1,0], [-1,0], [0,1], [0,-1]\n  ].some(([dx, dy]) => {\n    const nx = x + dx;\n    const ny = y + dy;\n    return ny >= 0 && ny < ROWS && nx >= 0 && nx < COLS && map[ny][nx] !== "#";\n  });\n}\n\nfunction findOpenNear(cx, cy, used = []) {\n  const usedKey = new Set(used.map(p => `${p.x},${p.y}`));\n  let bestTile = null;\n  let bestDistance = Infinity;\n\n  for (let y = 1; y < ROWS - 1; y++) {\n    for (let x = 1; x < COLS - 1; x++) {\n      if (map[y][x] === "#" || !hasOpenNeighbour(x, y) || usedKey.has(`${x},${y}`)) continue;\n      const d = Math.abs(x - cx) + Math.abs(y - cy);\n      if (d < bestDistance && d > 1) {\n        bestDistance = d;\n        bestTile = { x, y };\n      }\n    }\n  }\n\n  return bestTile || { x: cx, y: cy };\n}\n\nfunction spawnActors() {\n  diaper = { x: spawnPoint.x, y: spawnPoint.y, dx:0, dy:0, ndx:0, ndy:0 };\n\n  const centre = { x: 9, y: 9 };\n  let homes = Array.isArray(pooSpawnPoints) && pooSpawnPoints.length\n    ? [...pooSpawnPoints]\n    : [\n        findOpenNear(centre.x - 1, centre.y, [diaper]),\n        findOpenNear(centre.x + 1, centre.y, [diaper]),\n        findOpenNear(centre.x, centre.y - 1, [diaper]),\n        findOpenNear(centre.x, centre.y + 1, [diaper])\n      ];\n\n  while (homes.length < 5) {\n    homes.push(findOpenNear(centre.x, centre.y, [diaper, ...homes]));\n  }\n\n  poos = homes.slice(0, 4).map((h, index) => ({\n    x: h.x,\n    y: h.y,\n    dx: index % 2 === 0 ? 1 : -1,\n    dy: index < 2 ? 0 : 1,\n    homeX: h.x,\n    homeY: h.y,\n    boss:false\n  }));\n\n  if (level >= 3) {\n    const bossHome = homes[4] || findOpenNear(centre.x, centre.y, [diaper, ...homes]);\n    poos.push({ x: bossHome.x, y: bossHome.y, dx:0, dy:-1, homeX:bossHome.x, homeY:bossHome.y, boss:true });\n  }\n}\n\nfunction startGame() {\n  score = 0;\n  lives = 3;\n  level = 1;\n  tick = 0;\n  lastStep = 0;\n  powerTicks = 0;\n  gameOver = false;\n  startLevel("Ready!");\n}\n\nfunction startLevel(message) {\n  cloneLevelMap();\n  spawnActors();\n  powerTicks = 0;\n  bonusBear = makeBonusBear();\n  updateHud(message || "Level " + level);\n}\n\nfunction makeBonusBear() {\n  const spaces = [];\n  for (let y=1; y<ROWS-1; y++) {\n    for (let x=1; x<COLS-1; x++) {\n      if (map[y][x] !== "#" && map[y][x] !== "B" && !(x === diaper.x && y === diaper.y)) {\n        spaces.push({x,y});\n      }\n    }\n  }\n  return spaces[Math.floor(Math.random() * spaces.length)] || null;\n}\n\nfunction updateHud(message) {\n  scoreEl.textContent = score;\n  livesEl.textContent = lives;\n  levelEl.textContent = level;\n  powerEl.textContent = Math.ceil(powerTicks / 10);\n  bestEl.textContent = best;\n  if (message) statusEl.textContent = message;\n}\n\nfunction isWall(x,y) {\n  if (x < 0 || x >= COLS) return false;\n  if (y < 0 || y >= ROWS) return true;\n  return map[y][x] === "#";\n}\n\nfunction wrap(entity) {\n  if (entity.x < 0) entity.x = COLS - 1;\n  if (entity.x >= COLS) entity.x = 0;\n}\n\nfunction setDir(dx,dy) {\n  diaper.ndx = dx;\n  diaper.ndy = dy;\n}\n\nfunction validDirs(e) {\n  return [\n    {dx:1, dy:0},\n    {dx:-1, dy:0},\n    {dx:0, dy:1},\n    {dx:0, dy:-1}\n  ].filter(d => !isWall(e.x + d.dx, e.y + d.dy));\n}\n\nfunction distance(ax,ay,bx,by) {\n  return Math.abs(ax-bx) + Math.abs(ay-by);\n}\n\nfunction isPooNurseryTile(x, y) {\n  return Array.isArray(pooSpawnPoints) && pooSpawnPoints.some(p => p.x === x && p.y === y);\n}\n\nfunction diaperBlocked(x, y) {\n  return isWall(x, y) || isPooNurseryTile(x, y);\n}\n\nfunction moveDiaper() {\n  if (!diaperBlocked(diaper.x + diaper.ndx, diaper.y + diaper.ndy)) {\n    diaper.dx = diaper.ndx;\n    diaper.dy = diaper.ndy;\n  }\n\n  if (!diaperBlocked(diaper.x + diaper.dx, diaper.y + diaper.dy)) {\n    diaper.x += diaper.dx;\n    diaper.y += diaper.dy;\n    wrap(diaper);\n  }\n\n  const cell = map[diaper.y]?.[diaper.x];\n\n  if (cell === "." || cell === "B") {\n    map[diaper.y][diaper.x] = " ";\n    score += cell === "B" ? 100 : 10;\n    if (cell === "B") {\n      powerTicks = 60;\n      beep(720,.12,"triangle",.05);\n      updateHud("Power bottle! Poo turned blue.");\n    } else {\n      beep(420,.035,"triangle",.025);\n      updateHud();\n    }\n  }\n\n  if (bonusBear && diaper.x === bonusBear.x && diaper.y === bonusBear.y) {\n    score += 250;\n    bonusBear = makeBonusBear();\n    beep(900,.09,"square",.04);\n    updateHud("Bonus teddy! +250");\n  }\n\n  if (!map.some(row => row.includes(".") || row.includes("B"))) {\n    level += 1;\n    score += 500;\n    beep(760,.08);\n    setTimeout(() => beep(980,.12), 90);\n    startLevel("Level up! Poo gets sneakier.");\n  }\n}\n\nfunction choosePooDir(p) {\n  const dirs = validDirs(p);\n  if (!dirs.length) return {dx:0, dy:0};\n\n  const nonReverse = dirs.filter(d => !(d.dx === -p.dx && d.dy === -p.dy));\n  const options = nonReverse.length ? nonReverse : dirs;\n  const frightened = powerTicks > 0;\n\n  options.sort((a,b) => {\n    const da = distance(p.x+a.dx, p.y+a.dy, diaper.x, diaper.y);\n    const db = distance(p.x+b.dx, p.y+b.dy, diaper.x, diaper.y);\n    return frightened ? db - da : da - db;\n  });\n\n  const cleverness = p.boss ? 0.98 : 0.88;\n  if (Math.random() < cleverness) return options[0];\n  return options[Math.floor(Math.random() * options.length)];\n}\n\nfunction movePoos() {\n  const frightened = powerTicks > 0;\n\n  poos.forEach((p, index) => {\n    const gate = frightened ? 7 : (p.boss ? Math.max(4, 8 - Math.floor(level / 5)) : Math.max(5, 11 - Math.floor(level / 5)));\n    if ((tick + index) % gate !== 0) return;\n\n    const dirs = validDirs(p);\n    const junction = dirs.length >= 3;\n    const blocked = isWall(p.x + p.dx, p.y + p.dy);\n\n    if (blocked || junction || Math.random() < 0.12) {\n      const d = choosePooDir(p);\n      p.dx = d.dx;\n      p.dy = d.dy;\n    }\n\n    if (!isWall(p.x + p.dx, p.y + p.dy)) {\n      p.x += p.dx;\n      p.y += p.dy;\n      wrap(p);\n    }\n  });\n}\n\nfunction sendPooHome(p) {\n  score += p.boss ? 300 : 150;\n  p.x = p.homeX;\n  p.y = p.homeY;\n  p.dx = 0;\n  p.dy = -1;\n  cuteFartSound();\n  updateHud(p.boss ? "Pffft! Boss poo bonked! +300" : "Pffft! Poo bonked! +150");\n}\n\nfunction loseLife() {\n  lives -= 1;\n  beep(180,.18,"sawtooth",.035);\n\n  if (lives <= 0) {\n    gameOver = true;\n    if (score > best) {\n      best = score;\n      localStorage.setItem("diaperDashV41Best", String(best));\n    }\n    updateHud("Game over! Press Restart.");\n  } else {\n    const keep = { dx: diaper.dx, dy: diaper.dy, ndx: diaper.ndx, ndy: diaper.ndy };\n    spawnActors();\n    diaper.dx = keep.dx;\n    diaper.dy = keep.dy;\n    diaper.ndx = keep.ndx;\n    diaper.ndy = keep.ndy;\n    updateHud("Oops! Poo caught the diaper.");\n  }\n}\n\nfunction checkCollision() {\n  for (const p of poos) {\n    if (p.x === diaper.x && p.y === diaper.y) {\n      if (powerTicks > 0) sendPooHome(p);\n      else loseLife();\n      return;\n    }\n  }\n}\n\nfunction gameStep() {\n  moveDiaper();\n  checkCollision();\n\n  movePoos();\n  checkCollision();\n\n  if (powerTicks > 0) {\n    powerTicks--;\n    if (powerTicks === 0) updateHud("Power finished. Dodge!");\n    else updateHud();\n  }\n}\n\nfunction roundedRect(x,y,w,h,r) {\n  ctx.beginPath();\n  ctx.moveTo(x+r,y);\n  ctx.arcTo(x+w,y,x+w,y+h,r);\n  ctx.arcTo(x+w,y+h,x,y+h,r);\n  ctx.arcTo(x,y+h,x,y,r);\n  ctx.arcTo(x,y,x+w,y,r);\n  ctx.closePath();\n}\n\nfunction drawWall(x,y) {\n  const px = x*tile;\n  const py = y*tile;\n  const letters = ["A", "B", "C", "D", "🍼", "★"];\n  const label = letters[(x * 7 + y * 5) % letters.length];\n\n  const grad = ctx.createLinearGradient(px, py, px + tile, py + tile);\n  grad.addColorStop(0, "#fff7ed");\n  grad.addColorStop(0.5, "#fce7f3");\n  grad.addColorStop(1, "#dbeafe");\n\n  ctx.fillStyle = grad;\n  roundedRect(px + 3, py + 3, tile - 6, tile - 6, 9);\n  ctx.fill();\n\n  ctx.strokeStyle = "#f9a8d4";\n  ctx.lineWidth = 3;\n  ctx.stroke();\n\n  ctx.strokeStyle = "rgba(96,165,250,.55)";\n  ctx.lineWidth = 1.5;\n  roundedRect(px + 8, py + 8, tile - 16, tile - 16, 6);\n  ctx.stroke();\n\n  ctx.fillStyle = "#1e3a8a";\n  ctx.font = label.length > 1 ? "bold 15px Arial" : "bold 19px Arial";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText(label, px + tile / 2, py + tile / 2 + 1);\n}\n\nfunction drawPellet(x,y,big) {\n  const px = x*tile + tile/2;\n  const py = y*tile + tile/2;\n  ctx.beginPath();\n  ctx.fillStyle = big ? "#60a5fa" : "#fb8cc7";\n  ctx.arc(px, py, big ? 10 : 4.8, 0, Math.PI*2);\n  ctx.fill();\n  if (big) {\n    ctx.font = "18px Arial";\n    ctx.textAlign = "center";\n    ctx.textBaseline = "middle";\n    ctx.fillText("🍼", px, py + 1);\n  }\n}\n\nfunction drawDiaper() {\n  const px = diaper.x*tile + tile/2;\n  const py = diaper.y*tile + tile/2;\n  ctx.font = "31px Arial";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText("🩲", px, py + Math.sin(tick/6)*2);\n\n  if (diaper.dx || diaper.dy) {\n    ctx.fillStyle = "#ec4899";\n    ctx.beginPath();\n    ctx.arc(px + diaper.dx*13, py + diaper.dy*13, 3 + Math.abs(Math.sin(tick/4))*3, 0, Math.PI*2);\n    ctx.fill();\n  }\n}\n\nfunction drawPoo(p) {\n  const px = p.x*tile + tile/2;\n  const py = p.y*tile + tile/2;\n  const warning = powerTicks > 0 && powerTicks < 20;\n\n  ctx.save();\n\n  if (powerTicks > 0) {\n    if (warning && tick % 12 < 6) {\n      ctx.globalAlpha = 1;\n      ctx.filter = "none";\n    } else {\n      ctx.globalAlpha = 0.72;\n      ctx.filter = "hue-rotate(190deg) saturate(1.7)";\n    }\n  }\n\n  ctx.font = p.boss ? "38px Arial" : "31px Arial";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText("💩", px, py);\n\n  if (p.boss) {\n    ctx.font = "18px Arial";\n    ctx.fillText("👑", px, py - 20);\n  }\n\n  ctx.restore();\n}\n\nfunction drawPooNursery() {\n  if (!Array.isArray(pooSpawnPoints) || !pooSpawnPoints.length) return;\n\n  let minX = Math.min(...pooSpawnPoints.map(p => p.x));\n  let maxX = Math.max(...pooSpawnPoints.map(p => p.x));\n  let minY = Math.min(...pooSpawnPoints.map(p => p.y));\n  let maxY = Math.max(...pooSpawnPoints.map(p => p.y));\n\n  const x = minX * tile + 4;\n  const y = minY * tile + 4;\n  const w = (maxX - minX + 1) * tile - 8;\n  const h = (maxY - minY + 1) * tile - 8;\n\n  ctx.save();\n  ctx.fillStyle = "rgba(255,247,237,.88)";\n  ctx.strokeStyle = "rgba(236,72,153,.85)";\n  ctx.lineWidth = 4;\n  roundedRect(x, y, w, h, 14);\n  ctx.fill();\n  ctx.stroke();\n\n  ctx.strokeStyle = "rgba(30,58,138,.5)";\n  ctx.lineWidth = 2;\n  for (let cx = x + 12; cx < x + w; cx += 16) {\n    ctx.beginPath();\n    ctx.moveTo(cx, y + 6);\n    ctx.lineTo(cx, y + h - 6);\n    ctx.stroke();\n  }\n\n  ctx.font = "bold 12px Arial";\n  ctx.fillStyle = "#ec4899";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText("POO NURSERY", x + w / 2, y + h / 2);\n  ctx.restore();\n}\n\nfunction drawBear() {\n  if (!bonusBear) return;\n  const px = bonusBear.x*tile + tile/2;\n  const py = bonusBear.y*tile + tile/2;\n  ctx.font = "25px Arial";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText("🧸", px, py + Math.sin(tick/8)*2);\n}\n\nfunction drawOverlay(title, sub) {\n  ctx.fillStyle = "rgba(255,255,255,.9)";\n  roundedRect(74, canvas.height/2 - 88, canvas.width - 148, 176, 28);\n  ctx.fill();\n  ctx.strokeStyle = "#bfdbfe";\n  ctx.lineWidth = 4;\n  ctx.stroke();\n\n  ctx.fillStyle = "#ec4899";\n  ctx.font = "bold 40px Arial";\n  ctx.textAlign = "center";\n  ctx.textBaseline = "middle";\n  ctx.fillText(title, canvas.width/2, canvas.height/2 - 26);\n\n  ctx.fillStyle = "#1e3a8a";\n  ctx.font = "bold 18px Arial";\n  ctx.fillText(sub, canvas.width/2, canvas.height/2 + 22);\n  ctx.font = "bold 15px Arial";\n  ctx.fillText("Best score: " + best, canvas.width/2, canvas.height/2 + 54);\n}\n\nfunction draw() {\n  ctx.clearRect(0,0,canvas.width,canvas.height);\n  ctx.fillStyle = "#fffafc";\n  ctx.fillRect(0,0,canvas.width,canvas.height);\n\n  for (let y=0; y<ROWS; y++) {\n    for (let x=0; x<COLS; x++) {\n      const c = map[y][x];\n      if (c === "#") drawWall(x,y);\n      if (c === ".") drawPellet(x,y,false);\n      if (c === "B") drawPellet(x,y,true);\n    }\n  }\n\n  drawPooNursery();\n  drawBear();\n  drawDiaper();\n  poos.forEach(drawPoo);\n\n  if (powerTicks > 0) {\n    ctx.fillStyle = "rgba(96,165,250,.10)";\n    ctx.fillRect(0,0,canvas.width,canvas.height);\n  }\n\n  if (gameOver) drawOverlay("GAME OVER", "Press Restart or R");\n}\n\nfunction loop() {\n  tick++;\n\n  if (!gameOver && tick - lastStep >= Math.max(4, 9 - Math.floor(level / 3))) {\n    lastStep = tick;\n    gameStep();\n  }\n\n  draw();\n  requestAnimationFrame(loop);\n}\n\n["up","down","left","right"].forEach(id => {\n  document.getElementById(id).addEventListener("click", () => {\n    if (id === "up") setDir(0,-1);\n    if (id === "down") setDir(0,1);\n    if (id === "left") setDir(-1,0);\n    if (id === "right") setDir(1,0);\n  });\n});\n\ndocument.getElementById("restart").addEventListener("click", startGame);\n\nwindow.addEventListener("keydown", e => {\n  const k = e.key.toLowerCase();\n  if (k === "arrowup" || k === "w") setDir(0,-1);\n  if (k === "arrowdown" || k === "s") setDir(0,1);\n  if (k === "arrowleft" || k === "a") setDir(-1,0);\n  if (k === "arrowright" || k === "d") setDir(1,0);\n  if (k === "r") startGame();\n});\n\ncanvas.addEventListener("pointerdown", e => {\n  const rect = canvas.getBoundingClientRect();\n  const x = e.clientX - rect.left - rect.width/2;\n  const y = e.clientY - rect.top - rect.height/2;\n  if (Math.abs(x) > Math.abs(y)) setDir(x > 0 ? 1 : -1, 0);\n  else setDir(0, y > 0 ? 1 : -1);\n});\n\nstartGame();\nloop();\n</script>\n</body>\n</html>\n';
+
+
+function GamesRoom() {
+  return (
+    <section className="room">
+      <div className="hero">
+        <h2>🎮 Games</h2>
+        <p className="muted">Tiny arcade fun for Happy Little Bubbies. First game: Diaper Dash.</p>
+      </div>
+
+      <div className="profile" style={{ padding: 18 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            marginBottom: 14,
+          }}
+        >
+          <div>
+            <h3 style={{ margin: 0 }}>🍼 Diaper Dash</h3>
+            <p className="muted" style={{ margin: '6px 0 0' }}>
+              Dodge the poo patrol, grab power bottles, collect teddy bonuses, and protect the diaper.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => {
+              try {
+                const blob = new Blob([DIAPER_DASH_GAME_HTML], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank', 'noopener,noreferrer');
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+              } catch (err) {
+                console.warn('Could not open game in new tab:', err);
+              }
+            }}
+          >
+            Open big game window
+          </button>
+        </div>
+
+        <iframe
+          title="Diaper Dash"
+          srcDoc={DIAPER_DASH_GAME_HTML}
+          style={{
+            width: '100%',
+            minHeight: 920,
+            border: '3px solid #bfdbfe',
+            borderRadius: 28,
+            background: '#fff',
+            boxShadow: '0 18px 45px rgba(30,58,138,.10)',
+          }}
+        />
       </div>
     </section>
   );
@@ -6116,7 +6182,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                   <span>
                     <strong style={{ color: '#1e3a8a' }}>{profile.displayName || 'Happy Little Bubby'}</strong>
                     <span className="muted" style={{ display: 'block', marginTop: 4 }}>
-                      {profile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                      {profile.role === 'admin' ? 'Helper' : 'Member'}
                     </span>
                   </span>
                 </button>
@@ -6158,7 +6224,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                 <div>
                   <h3 style={{ marginBottom: 6 }}>{selectedProfile.displayName || 'Happy Little Bubby'}</h3>
                   <p className="muted" style={{ margin: 0 }}>
-                    {selectedProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                    {selectedProfile.role === 'admin' ? 'Helper' : 'Member'}
                   </p>
                 </div>
               </div>
@@ -6211,7 +6277,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
 
               <div className="badges" style={{ marginTop: 12 }}>
                 {(selectedProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
-                {selectedProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+                {selectedProfile.role === 'admin' && <span>🛠️ Helper Admin</span>}
               </div>
 
               <div
@@ -6564,7 +6630,7 @@ function ProfileRoom({ member, setMember }) {
         <h3>{member.displayName}</h3>
         {member.bio && <p style={{ whiteSpace: 'pre-wrap' }}>{member.bio}</p>}
 
-        <p><strong>Role:</strong> {member.role === 'admin' ? 'Helper Bubby' : 'Member'}</p>
+        <p><strong>Role:</strong> {member.role === 'admin' ? 'Helper' : 'Member'}</p>
         <p><strong>Status:</strong> {member.status}</p>
         <p><strong>Favourite colour:</strong> {member.favouriteColour || 'Baby Blue'}</p>
         <p><strong>Gender:</strong> {member.gender === 'Self-describe' ? member.customGender || 'Self-described' : member.gender || 'Prefer not to say'}</p>
@@ -6576,7 +6642,7 @@ function ProfileRoom({ member, setMember }) {
         <div className="badges">
           {(member.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
           {mentorProfile?.status === 'Approved' && <span>💙 Approved Mentor</span>}
-          {member.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+          {member.role === 'admin' && <span>🛠️ Helper Admin</span>}
         </div>
       </div>
 
@@ -7134,7 +7200,8 @@ function AppShell({ member, setMember }) {
         {room === 'memory' && <MemoryBookRoom member={member} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && room !== 'memory' && <PlaceholderRoom title={active.label} />}
+        {room === 'games' && <GamesRoom />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'games' && room !== 'mentors' && room !== 'memory' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
