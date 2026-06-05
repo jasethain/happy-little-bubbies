@@ -1142,7 +1142,7 @@ function FriendsRoom({ member }) {
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
-              Your Little Bubbies family, all in one sunny backyard.
+            
             </p>
           </div>
         </div>
