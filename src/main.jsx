@@ -90,11 +90,11 @@ function makeBabyIcon(emoji) {
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
-  { id: 'chat', label: 'Group Baby Talk', icon: makeBabyIcon('🧱') },
+  { id: 'chat', label: 'Nursery Chat', icon: makeBabyIcon('🔤') },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
   { id: 'members', label: 'Bubble Family', icon: makeBabyIcon('🫧') },
-  { id: 'friendChat', label: 'Bubby Friends Chat', icon: makeBabyIcon('👶💬') },
+  { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Bottle Alerts', icon: makeBabyIcon('🍼') },
   { id: 'mentors', label: 'Rainbow Helpers', icon: makeBabyIcon('🌈') },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
@@ -189,11 +189,18 @@ function toBabyTalk(text) {
   const phraseRules = [
     [/\bhello everyone\b/gi, 'hi evyone'],
     [/\bhello\b/gi, 'hi'],
+    [/\bhi everyone\b/gi, 'hi evyone'],
     [/\bhow are you\??/gi, 'howyou?'],
+    [/\bhow are you doing\??/gi, 'howyou doing?'],
     [/\bi am good\b/gi, 'me good'],
     [/\bi'm good\b/gi, 'me good'],
+    [/\bi am ok\b/gi, 'me ok'],
+    [/\bi'm ok\b/gi, 'me ok'],
     [/\bi am\b/gi, 'me'],
     [/\bi'm\b/gi, 'me'],
+    [/\bi have\b/gi, 'me got'],
+    [/\bi want\b/gi, 'me want'],
+    [/\bcan i\b/gi, 'can me'],
     [/\bmy\b/gi, 'me'],
     [/\byou are\b/gi, 'you'],
     [/\byou're\b/gi, 'you'],
@@ -205,7 +212,11 @@ function toBabyTalk(text) {
     [/\bsorry\b/gi, 'sowwy'],
     [/\bthank you\b/gi, 'tank you'],
     [/\bthanks\b/gi, 'tanks'],
-    [/\bgood\b/gi, 'good'],
+    [/\bgood morning\b/gi, 'morning bubby'],
+    [/\bgood night\b/gi, 'night night'],
+    [/\blove\b/gi, 'wuv'],
+    [/\byes\b/gi, 'yus'],
+    [/\bno\b/gi, 'nu'],
   ];
 
   phraseRules.forEach(([pattern, replacement]) => {
@@ -216,17 +227,38 @@ function toBabyTalk(text) {
     .replace(/\bthe\b/gi, 'da')
     .replace(/\bthat\b/gi, 'dat')
     .replace(/\bthis\b/gi, 'dis')
+    .replace(/\bthere\b/gi, 'dere')
     .replace(/\bwith\b/gi, 'wif')
     .replace(/\band\b/gi, 'an')
     .replace(/\bfor\b/gi, 'fo')
     .replace(/\bto\b/gi, 'ta')
     .replace(/\byour\b/gi, 'you')
+    .replace(/\bfriend\b/gi, 'fwend')
+    .replace(/\bfriends\b/gi, 'fwends')
+    .replace(/\bmessage\b/gi, 'msg')
     .replace(/\s+/g, ' ')
     .replace(/\s+([?.!,])/g, '$1')
     .trim();
 
-  if (!/[.!?]$/.test(output)) return output;
+  // Add a softer baby-babble sound by changing r/l sounds in longer words.
+  output = output
+    .split(/(\s+)/)
+    .map((part) => {
+      if (/^\s+$/.test(part) || part.length < 4) return part;
+      return part.replace(/[rl]/gi, (match) => (match === match.toUpperCase() ? 'W' : 'w'));
+    })
+    .join('')
+    .replace(/\bhewwo\b/gi, 'hi')
+    .replace(/\bevyone\b/gi, 'evyone')
+    .replace(/\bhowyou\b/gi, 'howyou')
+    .replace(/\bme good\b/gi, 'me good');
+
   return output.charAt(0).toLowerCase() + output.slice(1);
+}
+
+function applyBabyTalk(currentText, setter) {
+  const converted = toBabyTalk(currentText);
+  if (converted) setter(converted);
 }
 
 const BUBBLE_PROFILE_KEYS = [
@@ -725,11 +757,11 @@ function HomeRoom({ setRoom, member, counts }) {
   const [setupStatus, setSetupStatus] = useState('');
 
   const cards = [
-    ['🧱', 'Group Baby Talk', 'Real-time group baby talk is live.', 'chat', 0],
+    ['🔤', 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
     ['🫧', 'Bubble Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
-    ['👶💬', 'Bubby Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
+    ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Bottle Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
@@ -916,7 +948,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
 
   return (
     <section className="room">
-      <h2>🧱 Group Baby Talk</h2>
+      <h2>🔤 Nursery Chat</h2>
       <p className="muted">Live community chat for invited members. Right-click a member name to send them a private message.</p>
       {chatError && <p className="error">{chatError}</p>}
 
@@ -989,10 +1021,10 @@ function ChatRoom({ member, onPrivateMessageUser }) {
         <button
           type="button"
           className="link-button"
-          onClick={() => setMessage(toBabyTalk(message))}
+          onClick={() => applyBabyTalk(message, setMessage)}
           disabled={!message.trim() || sending || uploadingPhoto}
         >
-          🍼 Baby talk
+          🍼 Make baby babble
         </button>
         <button type="submit" disabled={sending || uploadingPhoto}>
           <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
@@ -1534,11 +1566,11 @@ function InboxRoom({ member, initialRecipient }) {
             <button
               type="button"
               className="link-button"
-              onClick={() => setBody(toBabyTalk(body))}
+              onClick={() => applyBabyTalk(body, setBody)}
               disabled={sending || !body.trim()}
               style={{ minWidth: 130 }}
             >
-              🍼 Baby talk
+              🍼 Make baby babble
             </button>
             <button
               type="submit"
@@ -2181,7 +2213,7 @@ function FriendChatRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>👶💬 Bubby Friends Chat</h2>
+      <h2>💬 Friends Chat</h2>
       <p className="muted">Real-time chat threads for accepted friends only.</p>
       {status && <p className="error">{status}</p>}
 
@@ -2310,10 +2342,10 @@ function FriendChatRoom({ member }) {
               <button
                 type="button"
                 className="link-button"
-                onClick={() => setMessage(toBabyTalk(message))}
+                onClick={() => applyBabyTalk(message, setMessage)}
                 disabled={!message.trim() || sending || uploadingPhoto || !selectedFriend}
               >
-                🍼 Baby talk
+                🍼 Make baby babble
               </button>
               <button type="submit" disabled={sending || uploadingPhoto || !selectedFriend}>
                 <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
@@ -3109,10 +3141,10 @@ function StoryCornerRoom({ member }) {
           <button
             type="button"
             className="link-button"
-            onClick={() => setStoryText(toBabyTalk(storyText))}
+            onClick={() => applyBabyTalk(storyText, setStoryText)}
             disabled={!storyText.trim()}
           >
-            🍼 Baby talk
+            🍼 Make baby babble
           </button>
           <input
             value={imageUrl}
@@ -3206,7 +3238,7 @@ function StoryCornerRoom({ member }) {
                     }))}
                     disabled={!(commentDrafts[story.id] || '').trim()}
                   >
-                    🍼 Baby talk
+                    🍼 Make baby babble
                   </button>
                   <button type="submit"><Send size={16} /> Comment</button>
                 </form>
@@ -3308,10 +3340,10 @@ function StoryCornerRoom({ member }) {
               <button
                 type="button"
                 className="link-button"
-                onClick={() => setRequestedStory(toBabyTalk(requestedStory))}
+                onClick={() => applyBabyTalk(requestedStory, setRequestedStory)}
                 disabled={!requestedStory.trim()}
               >
-                🍼 Baby talk
+                🍼 Make baby babble
               </button>
 
               <div
