@@ -1021,6 +1021,28 @@ async function uploadChatPhoto(file, folder, uid) {
 }
 
 
+async function uploadBubbleGalleryPhoto(file, member, visibility) {
+  if (!file) throw new Error('Please choose a photo first.');
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.');
+  }
+
+  const imagePayload = await uploadChatPhoto(file, 'bubbleGallery', member.uid);
+
+  await addDoc(collection(db, 'bubblePhotos'), {
+    ownerUid: member.uid,
+    ownerName: member.displayName || 'Happy Little Bubby',
+    imageUrl: imagePayload.imageUrl || '',
+    storagePath: imagePayload.storagePath || '',
+    visibility,
+    createdAt: serverTimestamp(),
+  });
+
+  return imagePayload;
+}
+
+
 function ChatRoom({ member, onPrivateMessageUser }) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -3991,6 +4013,7 @@ function StoryCornerRoom({ member }) {
 function NaughtyBabyAdminQueue({ member }) {
   const [reports, setReports] = useState([]);
   const [status, setStatus] = useState('');
+  const [bubblePhotos, setBubblePhotos] = useState([]);
 
   useEffect(() => {
     const reportsQuery = query(collection(db, 'naughtyBabyReports'), orderBy('createdAt', 'desc'));
@@ -5146,6 +5169,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
   const [requests, setRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [status, setStatus] = useState('');
+  const [bubblePhotos, setBubblePhotos] = useState([]);
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -5220,6 +5244,21 @@ function MembersRoom({ member, onPrivateMessageUser }) {
     return unsubscribe;
   }, [member.uid]);
 
+  useEffect(() => {
+    const photosQuery = query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      photosQuery,
+      (snapshot) => {
+        const allPhotos = snapshot.docs.map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }));
+        setBubblePhotos(allPhotos);
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, []);
+
   function initialsForName(name) {
     return String(name || 'HB')
       .split(' ')
@@ -5282,6 +5321,16 @@ function MembersRoom({ member, onPrivateMessageUser }) {
   const showInterests =
     selectedProfile?.interestsVisibility === 'Public' ||
     (selectedProfile?.interestsVisibility === 'Friends Only' && selectedIsFriend);
+
+  const selectedBubblePhotos = selectedProfile
+    ? bubblePhotos
+        .filter((photo) => photo.ownerUid === selectedProfile.uid)
+        .filter((photo) =>
+          photo.visibility === 'public' ||
+          selectedProfile.uid === member.uid ||
+          selectedIsFriend
+        )
+    : [];
 
   return (
     <section className="room">
@@ -5432,6 +5481,61 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                 <p><strong>Community interests:</strong> Hidden by member privacy setting</p>
               )}
 
+              <div className="bubble" style={{ marginTop: 16, marginBottom: 16 }}>
+                <strong>📷 Bubble Gallery</strong>
+                {selectedBubblePhotos.length === 0 ? (
+                  <p className="muted">No visible gallery photos yet.</p>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                      gap: 12,
+                      marginTop: 12,
+                    }}
+                  >
+                    {selectedBubblePhotos.map((photo) => (
+                      <div
+                        key={photo.id}
+                        style={{
+                          position: 'relative',
+                          borderRadius: 18,
+                          overflow: 'hidden',
+                          background: '#ffffff',
+                          border: '2px solid #dbeafe',
+                        }}
+                      >
+                        <img
+                          src={photo.imageUrl}
+                          alt="Bubble gallery"
+                          style={{
+                            width: '100%',
+                            height: 160,
+                            objectFit: 'cover',
+                            display: 'block',
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: 8,
+                            bottom: 8,
+                            background: 'rgba(30, 58, 138, 0.82)',
+                            color: '#ffffff',
+                            borderRadius: 999,
+                            padding: '5px 9px',
+                            fontSize: 11,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="badges" style={{ marginTop: 12 }}>
                 {(selectedProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
                 {selectedProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
@@ -5538,6 +5642,10 @@ function ProfileRoom({ member, setMember }) {
   const [saving, setSaving] = useState(false);
   const [friendCount, setFriendCount] = useState(0);
   const [mentorProfile, setMentorProfile] = useState(null);
+  const [galleryPhotos, setGalleryPhotos] = useState([]);
+  const [galleryFile, setGalleryFile] = useState(null);
+  const [galleryVisibility, setGalleryVisibility] = useState('public');
+  const [galleryUploading, setGalleryUploading] = useState(false);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
@@ -5581,6 +5689,24 @@ function ProfileRoom({ member, setMember }) {
     return unsubscribe;
   }, [member.uid]);
 
+  useEffect(() => {
+    const photosQuery = query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      photosQuery,
+      (snapshot) => {
+        const ownPhotos = snapshot.docs
+          .map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }))
+          .filter((photo) => photo.ownerUid === member.uid);
+
+        setGalleryPhotos(ownPhotos);
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
   function toggleCommunityInterest(option) {
     setCommunityInterests((current) =>
       current.includes(option)
@@ -5616,6 +5742,40 @@ function ProfileRoom({ member, setMember }) {
       setStatus(err.message || 'Could not upload profile photo.');
     } finally {
       setPhotoUploading(false);
+    }
+  }
+
+  async function uploadGalleryPhoto() {
+    if (!galleryFile) {
+      setStatus('Please choose a gallery photo first.');
+      return;
+    }
+
+    setGalleryUploading(true);
+    setStatus('');
+
+    try {
+      await uploadBubbleGalleryPhoto(galleryFile, { ...member, displayName }, galleryVisibility);
+      setGalleryFile(null);
+      setGalleryVisibility('public');
+      setStatus('Gallery photo uploaded.');
+    } catch (err) {
+      setStatus(err.message || 'Could not upload gallery photo.');
+    } finally {
+      setGalleryUploading(false);
+    }
+  }
+
+  async function deleteGalleryPhoto(photo) {
+    const ok = window.confirm('Remove this photo from your Bubble Gallery?');
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, 'bubblePhotos', photo.id));
+      setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
+      setStatus('Gallery photo removed.');
+    } catch (err) {
+      setStatus(err.message || 'Could not remove gallery photo.');
     }
   }
 
@@ -5741,6 +5901,125 @@ function ProfileRoom({ member, setMember }) {
           {mentorProfile?.status === 'Approved' && <span>💙 Approved Mentor</span>}
           {member.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
         </div>
+      </div>
+
+      <div className="profile" style={{ marginTop: 20 }}>
+        <h3>📷 Bubble Gallery</h3>
+        <p className="muted">Add photos to your Bubble and choose who can see each one.</p>
+
+        <div
+          style={{
+            background: '#f5f7fb',
+            borderRadius: 22,
+            padding: 18,
+            marginBottom: 18,
+          }}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setGalleryFile(e.target.files?.[0] || null)}
+          />
+
+          <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                fontWeight: 900,
+                color: '#1e3a8a',
+              }}
+            >
+              <input
+                type="radio"
+                name="galleryVisibility"
+                value="public"
+                checked={galleryVisibility === 'public'}
+                onChange={(e) => setGalleryVisibility(e.target.value)}
+              />
+              🌍 For everyone to see
+            </label>
+
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                fontWeight: 900,
+                color: '#1e3a8a',
+              }}
+            >
+              <input
+                type="radio"
+                name="galleryVisibility"
+                value="friends"
+                checked={galleryVisibility === 'friends'}
+                onChange={(e) => setGalleryVisibility(e.target.value)}
+              />
+              🧸 For friends eyes only
+            </label>
+          </div>
+
+          <button
+            type="button"
+            className="primary"
+            onClick={uploadGalleryPhoto}
+            disabled={galleryUploading || !galleryFile}
+            style={{ marginTop: 14 }}
+          >
+            {galleryUploading ? 'Uploading...' : 'Upload gallery photo'}
+          </button>
+        </div>
+
+        {galleryPhotos.length === 0 ? (
+          <div className="bubble">
+            <strong>No gallery photos yet</strong>
+            <p>Add your first Bubble Gallery photo above.</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: 14,
+            }}
+          >
+            {galleryPhotos.map((photo) => (
+              <div
+                key={photo.id}
+                className="bubble"
+                style={{
+                  padding: 10,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                <img
+                  src={photo.imageUrl}
+                  alt="Bubble gallery"
+                  style={{
+                    width: '100%',
+                    height: 170,
+                    objectFit: 'cover',
+                    borderRadius: 16,
+                    display: 'block',
+                  }}
+                />
+                <p style={{ margin: '8px 0 10px', fontWeight: 900 }}>
+                  {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone can see'}
+                </p>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => deleteGalleryPhoto(photo)}
+                >
+                  Remove photo
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="profile" style={{ marginTop: 20 }}>
@@ -5965,7 +6244,7 @@ function ProfileRoom({ member, setMember }) {
           </button>
         </form>
 
-        {status && <p className={status.includes('updated') ? 'success' : 'error'}>{status}</p>}
+        {status && <p className={status.includes('updated') || status.includes('Gallery photo') || status.includes('removed') || status.includes('uploaded') ? 'success' : 'error'}>{status}</p>}
       </div>
     </section>
   );
