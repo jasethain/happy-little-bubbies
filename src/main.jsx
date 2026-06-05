@@ -999,6 +999,172 @@ function ProtectedImage({ src, alt = 'Shared photo', caption = 'Protected photo'
   );
 }
 
+
+function resizeImageFileForUpload(file, maxSize = 1400, quality = 0.82) {
+  return new Promise((resolve) => {
+    if (!file || !file.type?.startsWith('image/')) {
+      resolve({ blob: file, contentType: file?.type || 'image/jpeg', extension: 'jpg' });
+      return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            resolve({
+              blob: blob || file,
+              contentType: blob ? 'image/jpeg' : file.type || 'image/jpeg',
+              extension: blob ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase(),
+            });
+          },
+          'image/jpeg',
+          quality
+        );
+      } catch {
+        URL.revokeObjectURL(objectUrl);
+        resolve({ blob: file, contentType: file.type || 'image/jpeg', extension: file.name.split('.').pop() || 'jpg' });
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({ blob: file, contentType: file.type || 'image/jpeg', extension: file.name.split('.').pop() || 'jpg' });
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+function GalleryPhotoModal({ photo, onClose }) {
+  if (!photo) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.72)',
+        zIndex: 9999,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: 'min(920px, 96vw)',
+          maxHeight: '92vh',
+          overflow: 'auto',
+          background: '#ffffff',
+          borderRadius: 28,
+          padding: 18,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
+          border: '3px solid #bfdbfe',
+        }}
+      >
+        <img
+          src={photo.imageUrl}
+          alt="Bubble gallery enlarged"
+          style={{
+            width: '100%',
+            maxHeight: '72vh',
+            objectFit: 'contain',
+            borderRadius: 22,
+            background: '#f5f7fb',
+            display: 'block',
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginTop: 14, flexWrap: 'wrap' }}>
+          <strong style={{ color: '#1e3a8a' }}>
+            {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 For everyone to see'}
+          </strong>
+          <button type="button" className="primary" onClick={onClose} style={{ minWidth: 130 }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
+  if (!photo?.imageUrl) return null;
+
+  return (
+    <div
+      className="bubble"
+      style={{
+        padding: 10,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onOpen?.(photo)}
+        title="Open photo"
+        style={{
+          width: '100%',
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          display: 'block',
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}
+      >
+        <img
+          src={photo.imageUrl}
+          alt="Bubble gallery thumbnail"
+          style={{
+            width: '100%',
+            aspectRatio: '1 / 1',
+            objectFit: 'cover',
+            borderRadius: 16,
+            display: 'block',
+            background: '#f5f7fb',
+          }}
+        />
+      </button>
+
+      <p style={{ margin: '8px 0 10px', fontWeight: 900 }}>
+        {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone can see'}
+      </p>
+
+      {canRemove && (
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => onRemove?.(photo)}
+        >
+          Remove photo
+        </button>
+      )}
+    </div>
+  );
+}
+
 async function uploadChatPhoto(file, folder, uid) {
   if (!file) return null;
 
@@ -1006,14 +1172,14 @@ async function uploadChatPhoto(file, folder, uid) {
     throw new Error('Please choose an image file.');
   }
 
-  const ext = file.name.split('.').pop() || 'jpg';
-  const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const resized = await resizeImageFileForUpload(file);
+  const cleanExt = String(resized.extension || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
   const storagePath = `${folder}/${uid}/${fileName}`;
   const imageRef = ref(storage, storagePath);
 
-  await uploadBytes(imageRef, file, {
-    contentType: file.type || 'image/jpeg',
+  await uploadBytes(imageRef, resized.blob, {
+    contentType: resized.contentType || 'image/jpeg',
   });
 
   const imageUrl = await getDownloadURL(imageRef);
@@ -4013,7 +4179,6 @@ function StoryCornerRoom({ member }) {
 function NaughtyBabyAdminQueue({ member }) {
   const [reports, setReports] = useState([]);
   const [status, setStatus] = useState('');
-  const [bubblePhotos, setBubblePhotos] = useState([]);
 
   useEffect(() => {
     const reportsQuery = query(collection(db, 'naughtyBabyReports'), orderBy('createdAt', 'desc'));
@@ -5170,6 +5335,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
   const [friends, setFriends] = useState([]);
   const [status, setStatus] = useState('');
   const [bubblePhotos, setBubblePhotos] = useState([]);
+  const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -5489,48 +5655,17 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 140px))',
                       gap: 12,
                       marginTop: 12,
                     }}
                   >
                     {selectedBubblePhotos.map((photo) => (
-                      <div
+                      <GalleryThumbnail
                         key={photo.id}
-                        style={{
-                          position: 'relative',
-                          borderRadius: 18,
-                          overflow: 'hidden',
-                          background: '#ffffff',
-                          border: '2px solid #dbeafe',
-                        }}
-                      >
-                        <img
-                          src={photo.imageUrl}
-                          alt="Bubble gallery"
-                          style={{
-                            width: '100%',
-                            height: 160,
-                            objectFit: 'cover',
-                            display: 'block',
-                          }}
-                        />
-                        <span
-                          style={{
-                            position: 'absolute',
-                            left: 8,
-                            bottom: 8,
-                            background: 'rgba(30, 58, 138, 0.82)',
-                            color: '#ffffff',
-                            borderRadius: 999,
-                            padding: '5px 9px',
-                            fontSize: 11,
-                            fontWeight: 900,
-                          }}
-                        >
-                          {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone'}
-                        </span>
-                      </div>
+                        photo={photo}
+                        onOpen={setOpenGalleryPhoto}
+                      />
                     ))}
                   </div>
                 )}
@@ -5583,6 +5718,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
           {status && <p className={status.includes('sent') || status.includes('already') || status.includes('pending') ? 'success' : 'error'}>{status}</p>}
         </div>
       </div>
+      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} />
     </section>
   );
 }
@@ -5646,6 +5782,7 @@ function ProfileRoom({ member, setMember }) {
   const [galleryFile, setGalleryFile] = useState(null);
   const [galleryVisibility, setGalleryVisibility] = useState('public');
   const [galleryUploading, setGalleryUploading] = useState(false);
+  const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
@@ -5981,42 +6118,18 @@ function ProfileRoom({ member, setMember }) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 150px))',
               gap: 14,
             }}
           >
             {galleryPhotos.map((photo) => (
-              <div
+              <GalleryThumbnail
                 key={photo.id}
-                className="bubble"
-                style={{
-                  padding: 10,
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
-                <img
-                  src={photo.imageUrl}
-                  alt="Bubble gallery"
-                  style={{
-                    width: '100%',
-                    height: 170,
-                    objectFit: 'cover',
-                    borderRadius: 16,
-                    display: 'block',
-                  }}
-                />
-                <p style={{ margin: '8px 0 10px', fontWeight: 900 }}>
-                  {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone can see'}
-                </p>
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => deleteGalleryPhoto(photo)}
-                >
-                  Remove photo
-                </button>
-              </div>
+                photo={photo}
+                onOpen={setOpenGalleryPhoto}
+                canRemove
+                onRemove={deleteGalleryPhoto}
+              />
             ))}
           </div>
         )}
@@ -6246,6 +6359,7 @@ function ProfileRoom({ member, setMember }) {
 
         {status && <p className={status.includes('updated') || status.includes('Gallery photo') || status.includes('removed') || status.includes('uploaded') ? 'success' : 'error'}>{status}</p>}
       </div>
+      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} />
     </section>
   );
 }
