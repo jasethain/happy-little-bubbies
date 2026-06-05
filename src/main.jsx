@@ -65,6 +65,7 @@ const baseRooms = [
   { id: 'chat', label: 'Chat', icon: MessageCircle },
   { id: 'inbox', label: 'Private Inbox', icon: Inbox },
   { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
+  { id: 'members', label: 'Members', icon: Users },
   { id: 'friendChat', label: 'Friend Chat', icon: MessageCircle },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'mentors', label: 'Mentor Lounge', icon: Heart },
@@ -87,6 +88,7 @@ const routeMap = {
   chat: '/chat',
   inbox: '/private-inbox',
   friends: '/friends',
+  members: '/members',
   friendChat: '/friend-chat',
   notifications: '/notifications',
   mentors: '/mentor-lounge',
@@ -568,6 +570,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['💬', 'Chat', 'Real-time messages are live.', 'chat', 0],
     ['✉️', 'Private Inbox', 'Email-style member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
+    ['🫧', 'Members', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['🧸', 'Friend Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🔔', 'Notifications', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     ['🛠️', 'Admin Console', 'Helper Bubby control room.', 'admin', 0],
@@ -4391,6 +4394,332 @@ function BubbleThemeStyles({ theme }) {
 }
 
 
+
+function MembersRoom({ member, onPrivateMessageUser }) {
+  const [members, setMembers] = useState([]);
+  const [selectedMemberUid, setSelectedMemberUid] = useState('');
+  const [requests, setRequests] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedMembers = snapshot.docs
+          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+          .filter((user) => user.uid)
+          .filter((user) => user.status === 'approved' || user.approved === true)
+          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+        setMembers(loadedMembers);
+        if (!selectedMemberUid) {
+          const firstOther = loadedMembers.find((user) => user.uid !== member.uid);
+          if (firstOther?.uid) setSelectedMemberUid(firstOther.uid);
+        }
+      },
+      (err) => setStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid, selectedMemberUid]);
+
+  useEffect(() => {
+    const requestQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      requestQuery,
+      (snapshot) => {
+        const allRequests = snapshot.docs.map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }));
+        setRequests(allRequests.filter((request) => request.toUid === member.uid || request.fromUid === member.uid));
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
+  useEffect(() => {
+    const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      friendsQuery,
+      (snapshot) => {
+        const allFriends = snapshot.docs.map((friendDoc) => ({ id: friendDoc.id, ...friendDoc.data() }));
+        setFriends(allFriends.filter((friend) => friend.userIds?.includes(member.uid)));
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
+  function initialsForName(name) {
+    return String(name || 'HB')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'HB';
+  }
+
+  function alreadyFriends(uid) {
+    return friends.some((friend) => friend.userIds?.includes(uid));
+  }
+
+  function pendingRequest(uid) {
+    return requests.find((request) =>
+      request.status === 'pending' &&
+      ((request.fromUid === member.uid && request.toUid === uid) ||
+      (request.fromUid === uid && request.toUid === member.uid))
+    );
+  }
+
+  async function sendFriendRequestToProfile(profile) {
+    setStatus('');
+
+    if (!profile?.uid || profile.uid === member.uid) {
+      setStatus('Choose another member first.');
+      return;
+    }
+
+    if (alreadyFriends(profile.uid)) {
+      setStatus('You are already friends with this member.');
+      return;
+    }
+
+    if (pendingRequest(profile.uid)) {
+      setStatus('A friend request is already pending with this member.');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'friendRequests'), {
+        fromUid: member.uid,
+        fromName: member.displayName,
+        toUid: profile.uid,
+        toName: profile.displayName || 'Happy Little Bubby',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      setStatus(`Friend request sent to ${profile.displayName || 'this member'}.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not send friend request.');
+    }
+  }
+
+  const selectedProfile = members.find((item) => item.uid === selectedMemberUid);
+  const publicMembers = members.filter((item) => item.uid !== member.uid);
+  const selectedIsFriend = selectedProfile ? alreadyFriends(selectedProfile.uid) : false;
+  const selectedPendingRequest = selectedProfile ? pendingRequest(selectedProfile.uid) : null;
+  const showInterests =
+    selectedProfile?.interestsVisibility === 'Public' ||
+    (selectedProfile?.interestsVisibility === 'Friends Only' && selectedIsFriend);
+
+  return (
+    <section className="room">
+      <h2>Members</h2>
+      <p className="muted">Browse member bubbles by display name. Email addresses and user IDs stay private.</p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 340px) 1fr',
+          gap: 18,
+          alignItems: 'start',
+        }}
+      >
+        <div className="profile" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: 22, borderBottom: '1px solid #e5e7eb' }}>
+            <h3 style={{ marginTop: 0 }}>Member List</h3>
+            <p className="muted" style={{ marginBottom: 0 }}>Click a name to view their Bubble.</p>
+          </div>
+
+          <div style={{ maxHeight: 620, overflowY: 'auto' }}>
+            {publicMembers.length === 0 && (
+              <div style={{ padding: 22 }}>
+                <p className="muted">No other members yet.</p>
+              </div>
+            )}
+
+            {publicMembers.map((profile) => {
+              const selected = profile.uid === selectedMemberUid;
+              return (
+                <button
+                  key={profile.uid}
+                  type="button"
+                  onClick={() => setSelectedMemberUid(profile.uid)}
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    borderBottom: '1px solid #e5e7eb',
+                    background: selected ? '#eaf2ff' : '#ffffff',
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {profile.photoUrl ? (
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        objectFit: 'cover',
+                        background: '#ffffff',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        background: selected ? '#60a5fa' : '#fce7f3',
+                        color: selected ? '#ffffff' : '#1e3a8a',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontWeight: 900,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {profile.avatar || initialsForName(profile.displayName)}
+                    </span>
+                  )}
+
+                  <span>
+                    <strong style={{ color: '#1e3a8a' }}>{profile.displayName || 'Happy Little Bubby'}</strong>
+                    <span className="muted" style={{ display: 'block', marginTop: 4 }}>
+                      {profile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="profile">
+          {!selectedProfile && (
+            <div className="bubble">
+              <strong>Pick a member</strong>
+              <p>Choose someone from the list to view their public Bubble.</p>
+            </div>
+          )}
+
+          {selectedProfile && (
+            <>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
+                {selectedProfile.photoUrl ? (
+                  <img
+                    src={selectedProfile.photoUrl}
+                    alt=""
+                    style={{
+                      width: 96,
+                      height: 96,
+                      borderRadius: 999,
+                      objectFit: 'cover',
+                      background: '#ffffff',
+                      border: '4px solid #bfdbfe',
+                    }}
+                  />
+                ) : (
+                  <div className="avatar" style={{ width: 96, height: 96, fontSize: 42 }}>
+                    {selectedProfile.avatar || '🧸'}
+                  </div>
+                )}
+
+                <div>
+                  <h3 style={{ marginBottom: 6 }}>{selectedProfile.displayName || 'Happy Little Bubby'}</h3>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {selectedProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedProfile.bio ? (
+                <div className="bubble" style={{ marginBottom: 16 }}>
+                  <strong>Bio</strong>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{selectedProfile.bio}</p>
+                </div>
+              ) : (
+                <div className="bubble" style={{ marginBottom: 16 }}>
+                  <strong>Bio</strong>
+                  <p className="muted">This member has not added a bio yet.</p>
+                </div>
+              )}
+
+              <p><strong>Favourite colour:</strong> {selectedProfile.favouriteColour || 'Baby Blue'}</p>
+              <p><strong>Gender:</strong> {selectedProfile.gender === 'Self-describe' ? selectedProfile.customGender || 'Self-described' : selectedProfile.gender || 'Prefer not to say'}</p>
+              <p><strong>Interests visibility:</strong> {selectedProfile.interestsVisibility || 'Public'}</p>
+
+              {showInterests ? (
+                <p><strong>Community interests:</strong> {(selectedProfile.communityInterests || []).length ? selectedProfile.communityInterests.join(', ') : 'None selected'}</p>
+              ) : (
+                <p><strong>Community interests:</strong> Hidden by member privacy setting</p>
+              )}
+
+              <div className="badges" style={{ marginTop: 12 }}>
+                {(selectedProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
+                {selectedProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 20,
+                  paddingTop: 18,
+                  borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {selectedIsFriend ? (
+                  <button type="button" className="primary" disabled>
+                    Already friends
+                  </button>
+                ) : selectedPendingRequest ? (
+                  <button type="button" className="primary" disabled>
+                    Friend request pending
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => sendFriendRequestToProfile(selectedProfile)}
+                  >
+                    Send friend request
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onPrivateMessageUser?.({ uid: selectedProfile.uid, displayName: selectedProfile.displayName || 'Happy Little Bubby' })}
+                >
+                  Private message
+                </button>
+              </div>
+            </>
+          )}
+
+          {status && <p className={status.includes('sent') || status.includes('already') || status.includes('pending') ? 'success' : 'error'}>{status}</p>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 function ProfileRoom({ member, setMember }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
@@ -4635,7 +4964,6 @@ function ProfileRoom({ member, setMember }) {
           <div className="avatar">{avatar}</div>
         )}
         <h3>{member.displayName}</h3>
-        <p>{member.email}</p>
         {member.bio && <p style={{ whiteSpace: 'pre-wrap' }}>{member.bio}</p>}
 
         <p><strong>Role:</strong> {member.role === 'admin' ? 'Helper Bubby' : 'Member'}</p>
@@ -4646,7 +4974,6 @@ function ProfileRoom({ member, setMember }) {
         <p><strong>Interests visibility:</strong> {member.interestsVisibility || 'Public'}</p>
         <p><strong>Friends:</strong> {friendCount}</p>
         <p><strong>Mentor status:</strong> {mentorProfile ? mentorProfile.status : 'Not a mentor yet'}</p>
-        <p><strong>User ID:</strong> {member.uid}</p>
 
         <div className="badges">
           {(member.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
@@ -4818,16 +5145,28 @@ function ProfileRoom({ member, setMember }) {
                 gap: 10,
               }}
             >
-              {interestOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={communityInterests.includes(option) ? 'primary' : 'link-button'}
-                  onClick={() => toggleCommunityInterest(option)}
-                >
-                  {communityInterests.includes(option) ? '✓ ' : ''}{option}
-                </button>
-              ))}
+              {interestOptions.map((option) => {
+                const selected = communityInterests.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => toggleCommunityInterest(option)}
+                    style={{
+                      border: selected ? `2px solid ${previewTheme.accent}` : '2px solid #dbeafe',
+                      borderRadius: 999,
+                      padding: '12px 14px',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      background: selected ? previewTheme.accent : '#ffffff',
+                      color: selected ? previewTheme.buttonText : '#1e3a8a',
+                      boxShadow: selected ? previewTheme.glow : '0 6px 14px rgba(30, 58, 138, 0.08)',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{option}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -4958,6 +5297,7 @@ function AppShell({ member, setMember }) {
         {room === 'chat' && <ChatRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
         {room === 'inbox' && <InboxRoom member={member} initialRecipient={privateMessageRecipient} />}
         {room === 'friends' && <FriendsRoom member={member} />}
+        {room === 'members' && <MembersRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
         {room === 'friendChat' && <FriendChatRoom member={member} />}
         {room === 'notifications' && <NotificationsRoom member={member} counts={counts} />}
         {room === 'stories' && <StoryCornerRoom member={member} />}
@@ -4965,7 +5305,7 @@ function AppShell({ member, setMember }) {
         {room === 'profile' && <ProfileRoom member={member} setMember={setMember} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && <PlaceholderRoom title={active.label} />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
