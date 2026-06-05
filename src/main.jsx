@@ -153,24 +153,66 @@ function makeInviteCode() {
   return code;
 }
 
+const BUBBLE_PROFILE_KEYS = [
+  'displayName',
+  'bio',
+  'avatar',
+  'photoUrl',
+  'favouriteColour',
+  'gender',
+  'customGender',
+  'communityInterests',
+  'interestsVisibility',
+  'profileUpdatedAt',
+];
+
+function pickBubbleProfileFields(source = {}) {
+  const picked = {};
+  BUBBLE_PROFILE_KEYS.forEach((key) => {
+    if (source[key] !== undefined) picked[key] = source[key];
+  });
+  return picked;
+}
+
+async function getBubbleProfile(uid, accountData = {}) {
+  if (!uid) return pickBubbleProfileFields(accountData);
+
+  const profileDoc = await getDoc(doc(db, 'userProfiles', uid));
+
+  if (profileDoc.exists()) {
+    return {
+      ...pickBubbleProfileFields(accountData),
+      ...profileDoc.data(),
+    };
+  }
+
+  // Backward compatibility: if older scripts stored bio/profile fields in users,
+  // show them, but do not move them unless the user saves My Bubble.
+  return pickBubbleProfileFields(accountData);
+}
+
 async function getUserProfile(uid, email = '') {
   const cleanEmail = email ? email.trim().toLowerCase() : '';
 
-  // First preference: the user document whose document ID is the Firebase Auth UID.
-  // This prevents old profile documents such as jctabdl-profile or jasethain-profile
-  // from overriding the latest saved My Bubble details after refresh.
   const uidDocRef = doc(db, 'users', uid);
   const uidDoc = await getDoc(uidDocRef);
 
   if (uidDoc.exists()) {
-    return {
+    const accountData = {
       id: uidDoc.id,
       ...uidDoc.data(),
       uid,
     };
+
+    const bubbleProfile = await getBubbleProfile(uid, accountData);
+
+    return {
+      ...accountData,
+      ...bubbleProfile,
+      uid,
+    };
   }
 
-  // Second preference: any existing document with a matching uid field.
   const userQuery = query(
     collection(db, 'users'),
     where('uid', '==', uid),
@@ -180,14 +222,35 @@ async function getUserProfile(uid, email = '') {
   const userResult = await getDocs(userQuery);
 
   if (!userResult.empty) {
-    return {
+    const oldData = userResult.docs[0].data();
+    const accountData = {
       id: userResult.docs[0].id,
-      ...userResult.docs[0].data(),
+      ...oldData,
+      uid,
+    };
+
+    await setDoc(uidDocRef, {
+      uid,
+      email: cleanEmail || oldData.email || '',
+      displayName: oldData.displayName || 'Happy Little Bubby',
+      role: oldData.role || 'member',
+      status: oldData.status || (oldData.approved === true ? 'approved' : 'pendingApproval'),
+      approved: oldData.approved === true || oldData.status === 'approved',
+      badges: oldData.badges || ['🐣 Little Hatchling'],
+      migratedFromProfileDoc: userResult.docs[0].id,
+      migratedAt: serverTimestamp(),
+    }, { merge: true });
+
+    const bubbleProfile = await getBubbleProfile(uid, accountData);
+
+    return {
+      ...accountData,
+      ...bubbleProfile,
+      id: uid,
       uid,
     };
   }
 
-  // Fallback for older imported profiles that were stored by email.
   if (cleanEmail) {
     const emailQuery = query(
       collection(db, 'users'),
@@ -198,19 +261,29 @@ async function getUserProfile(uid, email = '') {
     const emailResult = await getDocs(emailQuery);
 
     if (!emailResult.empty) {
-      const oldProfile = {
-        id: emailResult.docs[0].id,
-        ...emailResult.docs[0].data(),
+      const oldData = emailResult.docs[0].data();
+      const accountProfile = {
+        id: uid,
         uid,
         email: cleanEmail,
+        displayName: oldData.displayName || 'Happy Little Bubby',
+        role: oldData.role || 'member',
+        status: oldData.status || (oldData.approved === true ? 'approved' : 'pendingApproval'),
+        approved: oldData.approved === true || oldData.status === 'approved',
+        badges: oldData.badges || ['🐣 Little Hatchling'],
       };
 
-      // Create the proper UID-based profile doc so future logins use this one.
-      await setDoc(uidDocRef, oldProfile, { merge: true });
+      await setDoc(uidDocRef, {
+        ...accountProfile,
+        migratedFromProfileDoc: emailResult.docs[0].id,
+        migratedAt: serverTimestamp(),
+      }, { merge: true });
+
+      const bubbleProfile = await getBubbleProfile(uid, oldData);
 
       return {
-        id: uid,
-        ...oldProfile,
+        ...accountProfile,
+        ...bubbleProfile,
       };
     }
 
@@ -223,16 +296,25 @@ async function getUserProfile(uid, email = '') {
         helperData.email &&
         helperData.email.trim().toLowerCase() === cleanEmail
       ) {
-        const helperProfile = {
+        const accountProfile = {
           id: uid,
           uid,
-          ...helperData,
           email: cleanEmail,
+          displayName: helperData.displayName || 'Happy Little Bubby',
+          role: helperData.role || 'admin',
+          status: helperData.status || 'approved',
+          approved: true,
+          badges: helperData.badges || ['🧸 Helper Bubby', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'],
         };
 
-        await setDoc(uidDocRef, helperProfile, { merge: true });
+        await setDoc(uidDocRef, accountProfile, { merge: true });
 
-        return helperProfile;
+        const bubbleProfile = await getBubbleProfile(uid, helperData);
+
+        return {
+          ...accountProfile,
+          ...bubbleProfile,
+        };
       }
     }
   }
@@ -4407,17 +4489,35 @@ function MembersRoom({ member, onPrivateMessageUser }) {
 
     const unsubscribe = onSnapshot(
       usersQuery,
-      (snapshot) => {
-        const loadedMembers = snapshot.docs
-          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
-          .filter((user) => user.uid)
-          .filter((user) => user.status === 'approved' || user.approved === true)
-          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+      async (snapshot) => {
+        try {
+          const accountMembers = snapshot.docs
+            .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+            .filter((user) => user.uid)
+            .filter((user) => user.status === 'approved' || user.approved === true);
 
-        setMembers(loadedMembers);
-        if (!selectedMemberUid) {
-          const firstOther = loadedMembers.find((user) => user.uid !== member.uid);
-          if (firstOther?.uid) setSelectedMemberUid(firstOther.uid);
+          const loadedMembers = await Promise.all(accountMembers.map(async (account) => {
+            const bubbleProfile = await getBubbleProfile(account.uid, account);
+            return {
+              ...account,
+              ...bubbleProfile,
+              uid: account.uid,
+              role: account.role,
+              status: account.status,
+              approved: account.approved,
+              badges: account.badges,
+            };
+          }));
+
+          loadedMembers.sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+          setMembers(loadedMembers);
+          if (!selectedMemberUid) {
+            const firstOther = loadedMembers.find((user) => user.uid !== member.uid);
+            if (firstOther?.uid) setSelectedMemberUid(firstOther.uid);
+          }
+        } catch (err) {
+          setStatus(err.message || 'Could not load member profiles.');
         }
       },
       (err) => setStatus(err.message || 'Could not load members.')
@@ -4425,6 +4525,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
 
     return unsubscribe;
   }, [member.uid, selectedMemberUid]);
+
 
   useEffect(() => {
     const requestQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
@@ -4870,13 +4971,19 @@ function ProfileRoom({ member, setMember }) {
     setSaving(true);
 
     try {
-      const updatedProfile = {
+      const accountUpdate = {
         uid: member.uid,
         email: member.email || auth.currentUser?.email || '',
+        displayName: cleanName,
         role: member.role || 'member',
         status: member.status || 'approved',
         approved: member.approved === true || member.status === 'approved',
         badges: member.badges || ['🐣 Little Hatchling'],
+        updatedAt: serverTimestamp(),
+      };
+
+      const bubbleProfileUpdate = {
+        uid: member.uid,
         displayName: cleanName,
         bio: cleanBio,
         avatar,
@@ -4889,15 +4996,13 @@ function ProfileRoom({ member, setMember }) {
         profileUpdatedAt: serverTimestamp(),
       };
 
-      // Always save the main profile using Firebase Auth UID as the document ID.
-      // This is the profile the app now loads first when you come back later.
-      await setDoc(doc(db, 'users', member.uid), updatedProfile, { merge: true });
+      // Account/admin data stays in users/{uid}. This deliberately does not save
+      // bio, gender, interests, or profile photo into the account document.
+      await setDoc(doc(db, 'users', member.uid), accountUpdate, { merge: true });
 
-      // If this member came from an older profile document such as jctabdl-profile,
-      // update that document too so old data does not come back and overwrite the view.
-      if (member.id && member.id !== member.uid) {
-        await setDoc(doc(db, 'users', member.id), updatedProfile, { merge: true });
-      }
+      // Editable Bubble data lives separately in userProfiles/{uid}, so future
+      // script updates cannot accidentally wipe member bios.
+      await setDoc(doc(db, 'userProfiles', member.uid), bubbleProfileUpdate, { merge: true });
 
       await setDoc(doc(db, 'presence', member.uid), {
         uid: member.uid,
@@ -4910,17 +5015,10 @@ function ProfileRoom({ member, setMember }) {
 
       const localProfile = {
         ...member,
-        ...updatedProfile,
+        ...accountUpdate,
+        ...bubbleProfileUpdate,
         id: member.uid,
         displayName: cleanName,
-        bio: cleanBio,
-        avatar,
-        photoUrl,
-        favouriteColour,
-        gender,
-        customGender: gender === 'Self-describe' ? customGender.trim() : '',
-        communityInterests,
-        interestsVisibility,
       };
 
       setMember(localProfile);
