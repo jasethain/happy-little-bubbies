@@ -88,7 +88,7 @@ function makeBabyIcon(emoji) {
   };
 }
 
-function MascotIcon({ src, alt, size = 34 }) {
+function MascotIcon({ src, alt, size = 42 }) {
   return (
     <img
       src={src}
@@ -101,7 +101,7 @@ function MascotIcon({ src, alt, size = 34 }) {
 }
 
 function makeMascotIcon(src, alt) {
-  return function MascotNavIcon({ size = 34 }) {
+  return function MascotNavIcon({ size = 42 }) {
     return <MascotIcon src={src} alt={alt} size={size} />;
   };
 }
@@ -109,16 +109,16 @@ function makeMascotIcon(src, alt) {
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
-  { id: 'chat', label: 'Nursery Chat', icon: makeMascotIcon('/icons/image_cf92755a.png', 'Nursery Chat') },
+  { id: 'chat', label: 'Nursery Chat', icon: makeMascotIcon('/image_cf92755a.png', 'Nursery Chat') },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
-  { id: 'members', label: 'Nursery Family', icon: makeMascotIcon('/icons/image_9d6f08a6.png', 'Nursery Family') },
+  { id: 'members', label: 'Nursery Family', icon: makeMascotIcon('/image_9d6f08a6.png', 'Nursery Family') },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
-  { id: 'mentors', label: 'Mentors', icon: makeMascotIcon('/icons/mentor-fairy.png', 'Mentors') },
+  { id: 'mentors', label: 'Mentors', icon: makeMascotIcon('/mentor-fairy.png', 'Mentors') },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
-  { id: 'safety', label: 'Diaper Cops', icon: makeMascotIcon('/icons/diaper-cop.png', 'Diaper Cops') },
+  { id: 'safety', label: 'Diaper Cops', icon: makeMascotIcon('/diaper-cop.png', 'Diaper Cops') },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
@@ -851,7 +851,7 @@ function SocialBabyPolish() {
       .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
       button { transition:transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
       button:not(:disabled):hover { transform:translateY(-1px); }
-      .mascot-nav-icon { object-fit:contain; border-radius:14px; padding:2px; background:rgba(255,255,255,.92); box-shadow:0 6px 16px rgba(30,58,138,.12); transition:transform 180ms ease, filter 180ms ease, box-shadow 180ms ease; }
+      .mascot-nav-icon { width:42px !important; height:42px !important; object-fit:contain; border-radius:14px; padding:2px; background:rgba(255,255,255,.92); box-shadow:0 6px 16px rgba(30,58,138,.12); transition:transform 180ms ease, filter 180ms ease, box-shadow 180ms ease; }
       nav button:hover .mascot-nav-icon { transform:scale(1.10) rotate(-2deg); filter:drop-shadow(0 6px 14px rgba(244,114,182,.26)); }
       nav button.active .mascot-nav-icon { transform:scale(1.12); box-shadow:0 8px 18px rgba(244,114,182,.28); }
     `}</style>
