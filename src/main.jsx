@@ -683,7 +683,8 @@ function useNotificationCounts(member) {
     unsubscribers.push(onSnapshot(requestsQuery, (snapshot) => {
       const incomingRequests = snapshot.docs
         .map((item) => item.data())
-        .filter((request) => request.toUid === member.uid && request.status === 'pending').length;
+        .filter((request) => request.toUid === member.uid && request.status === 'pending')
+        .filter((request) => !(request.viewedBy || []).includes(member.uid)).length;
 
       setCounts((prev) => {
         const next = { ...prev, friendRequests: incomingRequests };
@@ -3292,6 +3293,10 @@ function NotificationsRoom({ member, counts }) {
   const [requests, setRequests] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState([]);
   const [unreadChats, setUnreadChats] = useState([]);
+
+  useEffect(() => {
+    markLittleAlertsViewed(member.uid);
+  }, [member.uid]);
 
   useEffect(() => {
     const requestsQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
@@ -6869,6 +6874,74 @@ function NurseryWorldUpgradeStyles() {
   );
 }
 
+
+async function markPrivateInboxViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'privateMessages'), orderBy('createdAt', 'desc')));
+    const updates = snapshot.docs
+      .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+      .filter((msg) => msg.toUid === uid && msg.read === false)
+      .map((msg) => updateDoc(doc(db, 'privateMessages', msg.id), {
+        read: true,
+        readAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear private message notifications:', err);
+  }
+}
+
+async function markFriendChatsViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'friendChats'), orderBy('updatedAt', 'desc')));
+    const updates = snapshot.docs
+      .map((chatDoc) => ({ id: chatDoc.id, ...chatDoc.data() }))
+      .filter((chat) => chat.participants?.includes(uid))
+      .filter((chat) => (chat.unreadBy || []).includes(uid))
+      .map((chat) => updateDoc(doc(db, 'friendChats', chat.id), {
+        unreadBy: (chat.unreadBy || []).filter((item) => item !== uid),
+        viewedAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear friend chat notifications:', err);
+  }
+}
+
+async function markFriendRequestsViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc')));
+    const updates = snapshot.docs
+      .map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }))
+      .filter((request) => request.toUid === uid && request.status === 'pending')
+      .filter((request) => !(request.viewedBy || []).includes(uid))
+      .map((request) => updateDoc(doc(db, 'friendRequests', request.id), {
+        viewedBy: [...new Set([...(request.viewedBy || []), uid])],
+        viewedAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear friend request notifications:', err);
+  }
+}
+
+async function markLittleAlertsViewed(uid) {
+  await Promise.all([
+    markPrivateInboxViewed(uid),
+    markFriendChatsViewed(uid),
+    markFriendRequestsViewed(uid),
+  ]);
+}
+
 function AppShell({ member, setMember }) {
   usePresence(member);
   const counts = useNotificationCounts(member);
@@ -6898,6 +6971,23 @@ function AppShell({ member, setMember }) {
     }
 
     setRoom(nextRoom);
+
+    if (nextRoom === 'notifications') {
+      markLittleAlertsViewed(member.uid);
+    }
+
+    if (nextRoom === 'inbox') {
+      markPrivateInboxViewed(member.uid);
+    }
+
+    if (nextRoom === 'friendChat') {
+      markFriendChatsViewed(member.uid);
+    }
+
+    if (nextRoom === 'friends') {
+      markFriendRequestsViewed(member.uid);
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
