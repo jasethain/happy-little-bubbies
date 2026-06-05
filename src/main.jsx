@@ -4,6 +4,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -374,6 +375,25 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'mentorRequests', 'setup-mentor-request'), setupDoc, { merge: true });
 }
 
+
+async function notifyAdminNewMember(profile) {
+  try {
+    await addDoc(collection(db, 'mail'), {
+      to: ['jasethain@gmail.com'],
+      message: {
+        subject: 'New Happy Little Bubbies member joined',
+        text: `A new member joined Happy Little Bubbies.\n\nName: ${profile.displayName}\nEmail: ${profile.email}\nRole: ${profile.role}\nStatus: ${profile.status}\nUID: ${profile.uid}`,
+        html: `<h2>New Happy Little Bubbies member</h2><p><strong>Name:</strong> ${profile.displayName}</p><p><strong>Email:</strong> ${profile.email}</p><p><strong>Role:</strong> ${profile.role}</p><p><strong>Status:</strong> ${profile.status}</p><p><strong>UID:</strong> ${profile.uid}</p>`,
+      },
+      createdAt: serverTimestamp(),
+      createdBy: profile.uid,
+      type: 'new-member-notification',
+    });
+  } catch (err) {
+    console.warn('New member email notification could not be queued:', err);
+  }
+}
+
 function Badge({ count }) {
   if (!count) return null;
   return (
@@ -436,6 +456,7 @@ function AuthGate({ setMember }) {
       };
 
       await setDoc(doc(db, 'users', user.uid), profile);
+      notifyAdminNewMember(profile);
       await setDoc(doc(db, 'presence', user.uid), {
         uid: user.uid,
         email: cleanEmail,
@@ -977,7 +998,7 @@ function FriendsRoom({ member }) {
         createdBy: member.uid,
         createdByName: member.displayName,
         createdByEmail: member.email,
-        createdByRole: member?.role || "member",
+        createdByRole: member?.role || 'member',
         source: 'member-invite',
       });
 
@@ -1142,7 +1163,7 @@ function FriendsRoom({ member }) {
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
-            
+              
             </p>
           </div>
         </div>
@@ -4418,7 +4439,6 @@ function AppShell({ member, setMember }) {
         <header>
           <Logo goHome={() => navigateTo('home')} />
           <div>
-            <small>Stage 26 member invites build</small>
             <h2>{active.label}</h2>
           </div>
         </header>
