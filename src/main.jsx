@@ -4560,6 +4560,64 @@ function AdminConsole({ member }) {
     }
   }
 
+
+  async function deleteMatchingDocs(collectionName, fieldName, value, operator = '==') {
+    if (!value) return;
+
+    const matchingQuery = query(collection(db, collectionName), where(fieldName, operator, value));
+    const snapshot = await getDocs(matchingQuery);
+    await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(db, collectionName, item.id))));
+  }
+
+  async function deleteMemberFromOnlineList(person) {
+    const uidToDelete = person?.uid || person?.id;
+    if (!uidToDelete) {
+      setStatus('Could not delete member because no UID was found.');
+      return;
+    }
+
+    if (uidToDelete === member.uid) {
+      setStatus('You cannot delete your own Helper Bubby admin account while you are signed in.');
+      return;
+    }
+
+    const account = users.find((user) => user.uid === uidToDelete || user.id === uidToDelete) || person;
+    const displayName = account.displayName || account.email || 'this member';
+    const confirmText = `Delete ${displayName} from Happy Little Bubbies?
+
+This removes their app profile, presence record, private messages, friend requests, chat posts, photos, mentor records, and reports from Firestore.
+
+Important: this does not delete the Firebase Authentication login. To fully block sign-in, also delete or disable the user in Firebase Authentication.`;
+
+    const ok = window.confirm(confirmText);
+    if (!ok) return;
+
+    try {
+      setStatus(`Deleting ${displayName}...`);
+
+      await Promise.all([
+        deleteDoc(doc(db, 'presence', uidToDelete)),
+        deleteDoc(doc(db, 'users', uidToDelete)),
+        deleteDoc(doc(db, 'userProfiles', uidToDelete)),
+        deleteMatchingDocs('privateMessages', 'fromUid', uidToDelete),
+        deleteMatchingDocs('privateMessages', 'toUid', uidToDelete),
+        deleteMatchingDocs('friendRequests', 'fromUid', uidToDelete),
+        deleteMatchingDocs('friendRequests', 'toUid', uidToDelete),
+        deleteMatchingDocs('friends', 'userIds', uidToDelete, 'array-contains'),
+        deleteMatchingDocs('chatMessages', 'senderUid', uidToDelete),
+        deleteMatchingDocs('bubblePhotos', 'ownerUid', uidToDelete),
+        deleteMatchingDocs('mentorProfiles', 'uid', uidToDelete),
+        deleteMatchingDocs('mentorRequests', 'requesterUid', uidToDelete),
+        deleteMatchingDocs('reports', 'reporterUid', uidToDelete),
+        deleteMatchingDocs('naughtyBabyReports', 'reporterUid', uidToDelete),
+      ]);
+
+      setStatus(`${displayName} has been deleted from the app records. Remember to remove or disable their Firebase Authentication user if you want to block future sign-in.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not delete member.');
+    }
+  }
+
   async function createInviteCode(event) {
     event.preventDefault();
 
@@ -4655,13 +4713,26 @@ function AdminConsole({ member }) {
           <span>🟢</span>
           <h3>Online Members</h3>
           {presenceList.length === 0 && <p>No presence records yet.</p>}
-          {presenceList.map((person) => (
-            <div className="bubble" key={person.id}>
-              <strong>{person.displayName || 'Member'}</strong>
-              <p className="muted">Happy Little Bubbies member</p>
-              <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
-            </div>
-          ))}
+          {presenceList.map((person) => {
+            const account = users.find((user) => user.uid === person.uid || user.id === person.uid);
+            const isCurrentAdmin = (person.uid || person.id) === member.uid;
+            return (
+              <div className="bubble" key={person.id}>
+                <strong>{person.displayName || account?.displayName || 'Member'}</strong>
+                <p className="muted">Happy Little Bubbies member</p>
+                <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
+                <p className="muted">Role: {account?.role || 'member'} | Status: {account?.status || 'unknown'}</p>
+                <SoftActionButton
+                  danger
+                  disabled={isCurrentAdmin}
+                  title={isCurrentAdmin ? 'You cannot delete your own signed-in admin account.' : 'Delete this member from the app records'}
+                  onClick={() => deleteMemberFromOnlineList({ ...person, ...account, uid: person.uid || account?.uid || person.id })}
+                >
+                  🗑️ Delete user
+                </SoftActionButton>
+              </div>
+            );
+          })}
         </div>
       </div>
 
