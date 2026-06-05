@@ -60,24 +60,52 @@ function FriendsImageIcon({ size = 20 }) {
 }
 
 
+function BabyEmojiIcon({ emoji, size = 20 }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: Math.max(size, 18),
+        lineHeight: 1,
+        marginRight: 2,
+      }}
+    >
+      {emoji}
+    </span>
+  );
+}
+
+function makeBabyIcon(emoji) {
+  return function BabyNavIcon({ size = 20 }) {
+    return <BabyEmojiIcon emoji={emoji} size={size} />;
+  };
+}
+
+
 const baseRooms = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'chat', label: 'Chat', icon: MessageCircle },
-  { id: 'inbox', label: 'Private Inbox', icon: Inbox },
-  { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
-  { id: 'members', label: 'Members', icon: Users },
-  { id: 'friendChat', label: 'Friend Chat', icon: MessageCircle },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'mentors', label: 'Mentor Lounge', icon: Heart },
-  { id: 'stories', label: 'Story Corner', icon: Star },
-  { id: 'swap', label: 'Swap Meet', icon: Gift },
-  { id: 'safety', label: 'Report a Naughty Baby', icon: ShieldCheck },
-  { id: 'profile', label: 'My Bubble', icon: Star },
+  { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
+  { id: 'chat', label: 'Group Baby Talk', icon: makeBabyIcon('🧱') },
+  { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
+  { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
+  { id: 'members', label: 'Bubble Family', icon: makeBabyIcon('🫧') },
+  { id: 'friendChat', label: 'Bubby Friends Chat', icon: makeBabyIcon('👶💬') },
+  { id: 'notifications', label: 'Bottle Alerts', icon: makeBabyIcon('🍼') },
+  { id: 'mentors', label: 'Rainbow Helpers', icon: makeBabyIcon('🌈') },
+  { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
+  { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
+  { id: 'safety', label: 'Diaper Cops', icon: makeBabyIcon('🚼') },
+  { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
 function getRooms(member) {
   if (member?.role === 'admin') {
-    return [...baseRooms, { id: 'admin', label: 'Admin Console', icon: Settings }];
+    return [...baseRooms, { id: 'admin', label: 'Head Helper Bubby', icon: makeBabyIcon('👑') }];
   }
   return baseRooms;
 }
@@ -151,6 +179,54 @@ function makeInviteCode() {
     code += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return code;
+}
+
+
+function toBabyTalk(text) {
+  let output = String(text || '').trim();
+  if (!output) return '';
+
+  const phraseRules = [
+    [/\bhello everyone\b/gi, 'hi evyone'],
+    [/\bhello\b/gi, 'hi'],
+    [/\bhow are you\??/gi, 'howyou?'],
+    [/\bi am good\b/gi, 'me good'],
+    [/\bi'm good\b/gi, 'me good'],
+    [/\bi am\b/gi, 'me'],
+    [/\bi'm\b/gi, 'me'],
+    [/\bmy\b/gi, 'me'],
+    [/\byou are\b/gi, 'you'],
+    [/\byou're\b/gi, 'you'],
+    [/\bare you\b/gi, 'you'],
+    [/\beveryone\b/gi, 'evyone'],
+    [/\bplease\b/gi, 'pwease'],
+    [/\blittle\b/gi, 'wittle'],
+    [/\breally\b/gi, 'weally'],
+    [/\bsorry\b/gi, 'sowwy'],
+    [/\bthank you\b/gi, 'tank you'],
+    [/\bthanks\b/gi, 'tanks'],
+    [/\bgood\b/gi, 'good'],
+  ];
+
+  phraseRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  output = output
+    .replace(/\bthe\b/gi, 'da')
+    .replace(/\bthat\b/gi, 'dat')
+    .replace(/\bthis\b/gi, 'dis')
+    .replace(/\bwith\b/gi, 'wif')
+    .replace(/\band\b/gi, 'an')
+    .replace(/\bfor\b/gi, 'fo')
+    .replace(/\bto\b/gi, 'ta')
+    .replace(/\byour\b/gi, 'you')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([?.!,])/g, '$1')
+    .trim();
+
+  if (!/[.!?]$/.test(output)) return output;
+  return output.charAt(0).toLowerCase() + output.slice(1);
 }
 
 const BUBBLE_PROFILE_KEYS = [
@@ -649,13 +725,13 @@ function HomeRoom({ setRoom, member, counts }) {
   const [setupStatus, setSetupStatus] = useState('');
 
   const cards = [
-    ['💬', 'Chat', 'Real-time messages are live.', 'chat', 0],
-    ['✉️', 'Private Inbox', 'Email-style member messages are live.', 'inbox', counts.inbox],
+    ['🧱', 'Group Baby Talk', 'Real-time group baby talk is live.', 'chat', 0],
+    ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
-    ['🫧', 'Members', 'Browse member Bubbles and send friend requests.', 'members', 0],
-    ['🧸', 'Friend Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
-    ['🔔', 'Notifications', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
-    ['🛠️', 'Admin Console', 'Helper Bubby control room.', 'admin', 0],
+    ['🫧', 'Bubble Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
+    ['👶💬', 'Bubby Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
+    ['🍼', 'Bottle Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
+    ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
 
   async function runSetup() {
@@ -840,7 +916,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
 
   return (
     <section className="room">
-      <h2>Chat</h2>
+      <h2>🧱 Group Baby Talk</h2>
       <p className="muted">Live community chat for invited members. Right-click a member name to send them a private message.</p>
       {chatError && <p className="error">{chatError}</p>}
 
@@ -910,6 +986,14 @@ function ChatRoom({ member, onPrivateMessageUser }) {
           title="Add photo"
         />
         {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => setMessage(toBabyTalk(message))}
+          disabled={!message.trim() || sending || uploadingPhoto}
+        >
+          🍼 Baby talk
+        </button>
         <button type="submit" disabled={sending || uploadingPhoto}>
           <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
         </button>
@@ -1129,7 +1213,7 @@ function InboxRoom({ member, initialRecipient }) {
 
   return (
     <section className="room">
-      <h2>Private Inbox</h2>
+      <h2>💌 Secret Little Letters</h2>
       <p className="muted">Private messages are shown by member name. Email addresses stay hidden.</p>
 
       <div
@@ -1447,6 +1531,15 @@ function InboxRoom({ member, initialRecipient }) {
                 resize: 'vertical',
               }}
             />
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setBody(toBabyTalk(body))}
+              disabled={sending || !body.trim()}
+              style={{ minWidth: 130 }}
+            >
+              🍼 Baby talk
+            </button>
             <button
               type="submit"
               className="primary"
@@ -2088,7 +2181,7 @@ function FriendChatRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Friend Chat</h2>
+      <h2>👶💬 Bubby Friends Chat</h2>
       <p className="muted">Real-time chat threads for accepted friends only.</p>
       {status && <p className="error">{status}</p>}
 
@@ -2214,6 +2307,14 @@ function FriendChatRoom({ member }) {
                 title="Add photo"
               />
               {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setMessage(toBabyTalk(message))}
+                disabled={!message.trim() || sending || uploadingPhoto || !selectedFriend}
+              >
+                🍼 Baby talk
+              </button>
               <button type="submit" disabled={sending || uploadingPhoto || !selectedFriend}>
                 <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
               </button>
@@ -2300,7 +2401,7 @@ function NotificationsRoom({ member, counts }) {
 
   return (
     <section className="room">
-      <h2>Notifications</h2>
+      <h2>🍼 Bottle Alerts</h2>
       <p className="muted">Your unread bubbles, friend requests, and chat nudges.</p>
 
       <div className="cards">
@@ -3005,6 +3106,14 @@ function StoryCornerRoom({ member }) {
             placeholder="What would you like to share?"
             maxLength={2000}
           />
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setStoryText(toBabyTalk(storyText))}
+            disabled={!storyText.trim()}
+          >
+            🍼 Baby talk
+          </button>
           <input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
@@ -3016,7 +3125,7 @@ function StoryCornerRoom({ member }) {
         {sortedStories.length === 0 && (
           <div className="bubble">
             <strong>No story posts yet</strong>
-            <p>Be the first to place a tiny lantern in Story Corner.</p>
+            <p>Be the first to place a tiny lantern in Bedtime Stories.</p>
           </div>
         )}
 
@@ -3088,6 +3197,17 @@ function StoryCornerRoom({ member }) {
                     placeholder="Write a comment"
                     maxLength={500}
                   />
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setCommentDrafts((current) => ({
+                      ...current,
+                      [story.id]: toBabyTalk(current[story.id] || ''),
+                    }))}
+                    disabled={!(commentDrafts[story.id] || '').trim()}
+                  >
+                    🍼 Baby talk
+                  </button>
                   <button type="submit"><Send size={16} /> Comment</button>
                 </form>
               </div>
@@ -3100,7 +3220,7 @@ function StoryCornerRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Story Corner</h2>
+      <h2>📖 Bedtime Stories</h2>
       <p className="muted">Story Time is now split into My Stories, Request a Story, Read a Story for a Bubby, and Library.</p>
 
       <div
@@ -3185,6 +3305,14 @@ function StoryCornerRoom({ member }) {
                 placeholder="Enter the story you would like read"
                 maxLength={4000}
               />
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setRequestedStory(toBabyTalk(requestedStory))}
+                disabled={!requestedStory.trim()}
+              >
+                🍼 Baby talk
+              </button>
 
               <div
                 style={{
@@ -4163,7 +4291,7 @@ function NaughtyBabyRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Report a Naughty Baby</h2>
+      <h2>🚼 Diaper Cops</h2>
       <p className="muted">Tell a Helper Bubby admin about behaviour that needs attention. The reported baby is required so the team can action it properly.</p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
@@ -5035,7 +5163,7 @@ function ProfileRoom({ member, setMember }) {
 
   return (
     <section className="room">
-      <h2>My Bubble</h2>
+      <h2>🫧 My Bubble</h2>
 
       <div
         className="profile"
