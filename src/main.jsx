@@ -88,24 +88,6 @@ function makeBabyIcon(emoji) {
   };
 }
 
-function MascotIcon({ src, alt, size = 24 }) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className="mascot-nav-icon"
-      style={{ width: size, height: size }}
-      draggable={false}
-    />
-  );
-}
-
-function makeMascotIcon(src, alt) {
-  return function MascotNavIcon({ size = 24 }) {
-    return <MascotIcon src={src} alt={alt} size={size} />;
-  };
-}
-
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
@@ -115,11 +97,10 @@ const baseRooms = [
   { id: 'members', label: 'Nursery Family', icon: makeBabyIcon('🫧') },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
-  { id: 'mentors', label: 'Mentors', icon: makeMascotIcon('/icons/mentor-fairy.png', 'Mentors') },
+  { id: 'mentors', label: 'Mentors', icon: makeBabyIcon('🧚') },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
-  { id: 'safety', label: 'Diaper Cops', icon: makeMascotIcon('/icons/diaper-cop.png', 'Diaper Cops') },
-  { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
+  { id: 'safety', label: 'Diaper Cops', icon: makeBabyIcon('🚼') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
@@ -144,7 +125,6 @@ const routeMap = {
   swap: '/swap-meet',
   safety: '/no-naughty-business',
   profile: '/my-bubble',
-  memory: '/memory-book',
   admin: '/admin-console',
 };
 
@@ -827,30 +807,699 @@ function SocialBabyPolish() {
   return (
     <style>{`
       :root {
-        --social-blue:#60a5fa;
-        --social-blue-dark:#1e3a8a;
-        --social-pink:#f9a8d4;
-        --social-line:rgba(191,219,254,.78);
-        --social-card:rgba(255,255,255,.92);
+        --nursery-ink: #3f3147;
+        --nursery-berry: #b97888;
+        --nursery-rose: #ffd5e4;
+        --nursery-rose-2: #f9bfd4;
+        --nursery-mint: #eaffdf;
+        --nursery-mint-2: #dff9d7;
+        --nursery-cream: #fffdf8;
+        --nursery-card: rgba(255, 255, 255, 0.82);
+        --nursery-glass: rgba(255, 255, 255, 0.62);
+        --nursery-line: rgba(185, 120, 136, 0.22);
+        --nursery-line-blue: rgba(147, 197, 253, 0.28);
+        --nursery-shadow: 0 24px 62px rgba(111, 72, 88, 0.16);
+        --nursery-soft-shadow: 0 12px 30px rgba(111, 72, 88, 0.10);
+        --nursery-inner: inset 0 1px 0 rgba(255,255,255,.94);
+        --nursery-radius: 34px;
       }
-      * { box-sizing:border-box; }
-      body { background:linear-gradient(135deg,#fff1f7 0%,#eff6ff 48%,#fff7ed 100%); }
-      .app { min-height:100vh; }
-      .sidebar, .panel, .profile, .feature-card, .bubble, .auth-card, .notice {
-        border:1px solid var(--social-line) !important;
-        box-shadow:0 18px 45px rgba(30,58,138,.09) !important;
+
+      * {
+        box-sizing: border-box;
       }
-      .sidebar { background:rgba(255,255,255,.78) !important; backdrop-filter:blur(18px); }
-      nav button { color:#475569 !important; }
-      nav button.active { background:linear-gradient(135deg,#dbeafe,#fce7f3) !important; color:#1e3a8a !important; }
-      .primary { background:linear-gradient(135deg,#60a5fa,#2563eb) !important; color:#fff !important; border:0 !important; }
-      .link-button { background:#eef6ff !important; color:#1e3a8a !important; border:1px solid rgba(191,219,254,.78) !important; border-radius:999px !important; padding:10px 14px; }
-      input, textarea, select { background:#f8fbff !important; border:1px solid rgba(191,219,254,.62) !important; color:#1e3a8a !important; }
-      .badges { display:flex !important; gap:10px !important; flex-wrap:wrap !important; padding:10px !important; border-radius:24px !important; background:linear-gradient(135deg,rgba(239,246,255,.94),rgba(252,231,243,.9)) !important; }
-      .badges span { background:rgba(255,255,255,.96) !important; color:#1e3a8a !important; border:1px solid rgba(96,165,250,.35) !important; font-weight:950 !important; text-shadow:none !important; }
-      .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
-      button { transition:transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
-      button:not(:disabled):hover { transform:translateY(-1px); }
+
+      html {
+        background: #f8c6d5;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 12% 10%, rgba(255,255,255,.78), transparent 18%),
+          radial-gradient(circle at 86% 18%, rgba(255,255,255,.55), transparent 20%),
+          radial-gradient(circle at 40% 100%, rgba(234,255,223,.55), transparent 24%),
+          linear-gradient(135deg, #f8b9cc 0%, #ffd5e4 38%, #f7d0db 100%) !important;
+        color: var(--nursery-ink);
+        overflow-x: hidden;
+      }
+
+      body:before {
+        content: '🎀   🧸   🌸   🐱   🫧   🎀   🧸   🌸   🐱   🫧';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        font-size: 34px;
+        line-height: 84px;
+        letter-spacing: 34px;
+        opacity: .09;
+        color: #8a5163;
+        transform: rotate(-8deg) scale(1.15);
+        white-space: pre-wrap;
+        pointer-events: none;
+      }
+
+      body:after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(circle at 0% 35%, rgba(255,255,255,.5), transparent 26%),
+          radial-gradient(circle at 100% 72%, rgba(255,255,255,.48), transparent 28%),
+          linear-gradient(90deg, rgba(255,255,255,.18), transparent 28%, transparent 72%, rgba(255,255,255,.2));
+        pointer-events: none;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 318px minmax(0, 1fr);
+        gap: 26px;
+        padding: 28px;
+        background:
+          radial-gradient(circle at 16% 0%, rgba(255,255,255,.42), transparent 22%),
+          radial-gradient(circle at 88% 20%, rgba(234,255,223,.28), transparent 18%),
+          radial-gradient(circle at 50% 100%, rgba(255,255,255,.26), transparent 26%) !important;
+        color: var(--nursery-ink) !important;
+        position: relative;
+      }
+
+      .app:before,
+      .app:after {
+        content: '';
+        position: fixed;
+        pointer-events: none;
+        border-radius: 999px;
+        filter: blur(.2px);
+        z-index: 0;
+      }
+
+      .app:before {
+        width: 230px;
+        height: 230px;
+        right: -70px;
+        top: 16%;
+        background: radial-gradient(circle, rgba(255,255,255,.58), rgba(255,213,228,.1) 70%);
+      }
+
+      .app:after {
+        width: 180px;
+        height: 180px;
+        left: 245px;
+        bottom: -46px;
+        background: radial-gradient(circle, rgba(234,255,223,.65), rgba(234,255,223,.05) 70%);
+      }
+
+      .nursery-sparkles {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+      }
+
+      .nursery-sparkles span {
+        position: absolute;
+        width: 58px;
+        height: 58px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: rgba(255,255,255,.34);
+        box-shadow: 0 14px 34px rgba(111,72,88,.09);
+        animation: floaty 12s ease-in-out infinite;
+        opacity: .58;
+      }
+
+      .nursery-sparkles span:nth-child(1) { left: 4%; top: 14%; animation-delay: 0s; }
+      .nursery-sparkles span:nth-child(2) { left: 78%; top: 8%; animation-delay: -2s; }
+      .nursery-sparkles span:nth-child(3) { left: 88%; top: 68%; animation-delay: -4s; }
+      .nursery-sparkles span:nth-child(4) { left: 20%; top: 82%; animation-delay: -6s; }
+      .nursery-sparkles span:nth-child(5) { left: 56%; top: 92%; animation-delay: -8s; }
+
+      @keyframes floaty {
+        0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+        50% { transform: translateY(-22px) rotate(7deg) scale(1.05); }
+      }
+
+      .sidebar,
+      .panel,
+      .panel > header,
+      .room {
+        position: relative;
+        z-index: 2;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 28px;
+        align-self: start;
+        height: calc(100vh - 56px);
+        overflow: auto;
+        padding: 22px !important;
+        border-radius: 42px !important;
+        border: 1px solid rgba(255,255,255,.82) !important;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.84), rgba(255,253,248,.66)),
+          radial-gradient(circle at 26% 4%, rgba(255,213,228,.75), transparent 28%) !important;
+        box-shadow: var(--nursery-shadow), var(--nursery-inner) !important;
+        backdrop-filter: blur(20px);
+      }
+
+      .sidebar::-webkit-scrollbar,
+      .list::-webkit-scrollbar {
+        width: 9px;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb,
+      .list::-webkit-scrollbar-thumb {
+        background: #d7a5b4;
+        border-radius: 999px;
+      }
+
+      .logo-button {
+        width: 100%;
+        padding: 12px !important;
+        border-radius: 32px !important;
+        background: rgba(255,255,255,.42) !important;
+        border: 1px solid rgba(255,255,255,.78) !important;
+        box-shadow: 0 16px 36px rgba(111,72,88,.10) !important;
+        transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+      }
+
+      .logo-button:hover {
+        background: rgba(255,255,255,.76) !important;
+        transform: translateY(-2px);
+      }
+
+      .logo-button img {
+        width: 76px !important;
+        height: 76px !important;
+        object-fit: contain;
+        border-radius: 26px !important;
+        background: #fff;
+        box-shadow: 0 12px 26px rgba(185,120,136,.24);
+      }
+
+      .logo-button h1 {
+        font-size: 22px !important;
+        line-height: .98 !important;
+        color: var(--nursery-ink) !important;
+        letter-spacing: -.055em !important;
+      }
+
+      .logo-button p {
+        color: #b05d7b !important;
+        font-weight: 950 !important;
+        letter-spacing: -.02em !important;
+      }
+
+      .sidebar nav {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        margin-top: 20px;
+      }
+
+      .sidebar nav button {
+        min-height: 50px;
+        border-radius: 999px !important;
+        padding: 10px 14px !important;
+        gap: 10px;
+        border: 1px solid transparent !important;
+        background: transparent !important;
+        color: #735b67 !important;
+        font-weight: 950 !important;
+        letter-spacing: -.02em;
+      }
+
+      .sidebar nav button:hover {
+        background: rgba(255,255,255,.66) !important;
+        color: var(--nursery-ink) !important;
+        transform: translateX(3px);
+        box-shadow: 0 10px 22px rgba(111,72,88,.08);
+      }
+
+      .sidebar nav button.active {
+        background: linear-gradient(135deg, #ffe3ee, #ffffff 45%, #eaffdf) !important;
+        color: var(--nursery-ink) !important;
+        border-color: rgba(185,120,136,.22) !important;
+        box-shadow: 0 16px 34px rgba(185,120,136,.18), inset 0 0 0 1px rgba(255,255,255,.82) !important;
+      }
+
+      .sidebar nav button span[aria-hidden='true'] {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        margin-right: 0 !important;
+        border-radius: 999px;
+        background: rgba(255,255,255,.76);
+        box-shadow: 0 7px 16px rgba(111,72,88,.08);
+      }
+
+      .signout {
+        margin-top: 24px !important;
+        border-radius: 999px !important;
+        background: linear-gradient(135deg, #cf879c, #f9bfd4) !important;
+        color: #fff !important;
+        font-weight: 950 !important;
+        box-shadow: 0 18px 36px rgba(185,120,136,.28) !important;
+        border: 1px solid rgba(255,255,255,.58) !important;
+      }
+
+      .panel {
+        width: 100%;
+        max-width: 1180px !important;
+        margin: 0 auto;
+      }
+
+      .panel > header {
+        position: sticky;
+        top: 28px;
+        z-index: 12;
+        border-radius: 42px !important;
+        padding: 18px 24px !important;
+        margin-bottom: 24px !important;
+        background:
+          linear-gradient(90deg, rgba(255,255,255,.86), rgba(255,253,248,.78)),
+          radial-gradient(circle at 100% 0%, rgba(255,213,228,.5), transparent 24%) !important;
+        border: 1px solid rgba(255,255,255,.82) !important;
+        box-shadow: var(--nursery-soft-shadow), var(--nursery-inner) !important;
+        backdrop-filter: blur(20px);
+      }
+
+      .panel > header:after {
+        content: 'soft nursery mode';
+        margin-left: auto;
+        color: #b97888;
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+      }
+
+      .panel > header h2 {
+        font-size: clamp(28px, 3.3vw, 44px) !important;
+        letter-spacing: -.06em !important;
+        color: var(--nursery-ink) !important;
+        margin: 0 !important;
+      }
+
+      .room {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+
+      .room h2 {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: clamp(34px, 4.6vw, 58px) !important;
+        letter-spacing: -.075em !important;
+        line-height: .96;
+        margin: 8px 0 12px !important;
+        color: var(--nursery-ink) !important;
+        text-shadow: 0 8px 26px rgba(255,255,255,.9);
+      }
+
+      .room > h2:first-child:after {
+        content: '🫧';
+        font-size: .56em;
+        filter: drop-shadow(0 8px 16px rgba(185,120,136,.22));
+      }
+
+      .muted {
+        color: #806674 !important;
+        font-weight: 750 !important;
+      }
+
+      .hero,
+      .profile,
+      .feature-card,
+      .bubble,
+      .auth-card,
+      .notice {
+        background:
+          linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,253,248,.72)),
+          radial-gradient(circle at 100% 0%, rgba(255,213,228,.32), transparent 34%) !important;
+        border: 1px solid rgba(255,255,255,.86) !important;
+        box-shadow: var(--nursery-shadow), var(--nursery-inner) !important;
+        border-radius: var(--nursery-radius) !important;
+        color: var(--nursery-ink) !important;
+      }
+
+      .hero {
+        min-height: 210px;
+        display: grid;
+        align-content: center;
+        padding: 34px !important;
+        overflow: hidden;
+      }
+
+      .hero:before {
+        content: '🐱 🎀 🧸';
+        position: absolute;
+        right: 28px;
+        top: 28px;
+        font-size: 38px;
+        opacity: .48;
+      }
+
+      .hero h2 {
+        max-width: 720px;
+      }
+
+      .cards {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(246px, 1fr)) !important;
+        gap: 18px !important;
+      }
+
+      .feature-card {
+        min-height: 172px;
+        text-align: left !important;
+        padding: 24px !important;
+        overflow: hidden;
+        transition: transform 180ms ease, box-shadow 180ms ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-4px);
+      }
+
+      .feature-card:before {
+        content: '';
+        position: absolute;
+        width: 130px;
+        height: 130px;
+        border-radius: 999px;
+        right: -44px;
+        bottom: -48px;
+        background: linear-gradient(135deg, rgba(249,191,212,.56), rgba(234,255,223,.52));
+      }
+
+      .feature-card span:first-child {
+        width: 56px;
+        height: 56px;
+        display: grid;
+        place-items: center;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #fff, #ffe3ee 55%, #eaffdf);
+        box-shadow: 0 12px 24px rgba(111,72,88,.12), inset 0 0 0 1px rgba(255,255,255,.9);
+        margin-bottom: 14px;
+        font-size: 28px;
+      }
+
+      .feature-card h3,
+      .profile h3,
+      .bubble strong {
+        color: var(--nursery-ink) !important;
+        letter-spacing: -.035em !important;
+      }
+
+      .profile {
+        padding: 24px !important;
+        margin-bottom: 20px !important;
+      }
+
+      .bubble {
+        position: relative;
+        padding: 18px !important;
+        margin-bottom: 14px !important;
+        line-height: 1.58;
+        overflow: hidden;
+      }
+
+      .bubble:before,
+      .profile:before,
+      .feature-card:after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(255,255,255,.56), transparent 46%);
+        pointer-events: none;
+      }
+
+      .bubble > *,
+      .profile > *,
+      .feature-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .list {
+        background:
+          linear-gradient(rgba(255,253,248,.64), rgba(255,253,248,.64)),
+          repeating-linear-gradient(135deg, rgba(255,213,228,.22) 0 18px, rgba(234,255,223,.20) 18px 36px) !important;
+        border-radius: 30px;
+        padding: 12px !important;
+        border: 1px solid rgba(255,255,255,.8);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+      }
+
+      .list .bubble:nth-child(odd) {
+        background: rgba(234,255,223,.86) !important;
+        border-color: rgba(194,232,184,.72) !important;
+      }
+
+      .list .bubble:nth-child(even) {
+        background: rgba(255,213,228,.86) !important;
+        border-color: rgba(249,191,212,.72) !important;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font-family: inherit;
+      }
+
+      button {
+        transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease, background 160ms ease;
+      }
+
+      button:not(:disabled):hover {
+        transform: translateY(-2px);
+      }
+
+      .primary {
+        background: linear-gradient(135deg, #cf879c, #f2a9c0) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255,255,255,.55) !important;
+        border-radius: 999px !important;
+        box-shadow: 0 14px 28px rgba(185,120,136,.26), inset 0 1px 0 rgba(255,255,255,.44) !important;
+        font-weight: 950 !important;
+        letter-spacing: -.02em;
+      }
+
+      .link-button {
+        background: rgba(255,255,255,.78) !important;
+        color: var(--nursery-ink) !important;
+        border: 1px solid rgba(185,120,136,.22) !important;
+        border-radius: 999px !important;
+        box-shadow: 0 10px 20px rgba(111,72,88,.08) !important;
+        font-weight: 950 !important;
+      }
+
+      input,
+      textarea,
+      select {
+        outline: none;
+        background: rgba(255,255,255,.72) !important;
+        border: 1px solid rgba(185,120,136,.20) !important;
+        color: var(--nursery-ink) !important;
+        border-radius: 22px !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.86) !important;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: #cf879c !important;
+        box-shadow: 0 0 0 4px rgba(249,191,212,.42), inset 0 1px 0 rgba(255,255,255,.86) !important;
+      }
+
+      input::placeholder,
+      textarea::placeholder {
+        color: #aa8b98 !important;
+      }
+
+      textarea {
+        min-height: 120px;
+        scrollbar-width: thin;
+        scrollbar-color: #d7a5b4 transparent;
+      }
+
+      .badges {
+        display: flex !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        padding: 10px !important;
+        border-radius: 26px !important;
+        background: linear-gradient(135deg, rgba(255,255,255,.82), rgba(255,227,238,.62), rgba(234,255,223,.46)) !important;
+        border: 1px solid rgba(255,255,255,.88) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.95);
+      }
+
+      .badges span,
+      .profile .badges span,
+      .bubble .badges span {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: 36px !important;
+        padding: 8px 14px !important;
+        border-radius: 999px !important;
+        background: rgba(255,255,255,.96) !important;
+        color: #3f3147 !important;
+        border: 1px solid rgba(185,120,136,.20) !important;
+        box-shadow: 0 8px 16px rgba(111,72,88,.10) !important;
+        font-weight: 950 !important;
+        text-shadow: none !important;
+        line-height: 1.1 !important;
+      }
+
+      .success,
+      .error {
+        border-radius: 24px !important;
+        padding: 14px 18px !important;
+        font-weight: 950 !important;
+        border: 1px solid rgba(255,255,255,.74) !important;
+        box-shadow: var(--nursery-soft-shadow) !important;
+      }
+
+      .success {
+        background: rgba(234,255,223,.88) !important;
+        color: #3f6b45 !important;
+      }
+
+      .error {
+        background: rgba(255,233,238,.92) !important;
+        color: #a23652 !important;
+      }
+
+      .social-action-row,
+      .post-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 20px;
+        background: rgba(255,255,255,.48);
+        border: 1px solid rgba(255,255,255,.76);
+      }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+        gap: 14px;
+      }
+
+      .gallery-grid .bubble {
+        padding: 8px !important;
+      }
+
+      .gallery-grid img,
+      .bubble img,
+      .profile img {
+        box-shadow: 0 12px 26px rgba(111,72,88,.14);
+      }
+
+      .gallery-grid img {
+        transition: transform 180ms ease;
+      }
+
+      .gallery-grid button:hover img {
+        transform: scale(1.04);
+      }
+
+      .auth-page {
+        background:
+          radial-gradient(circle at 20% 10%, rgba(255,255,255,.7), transparent 20%),
+          linear-gradient(135deg, #f8b9cc, #ffd5e4) !important;
+      }
+
+      .auth-card {
+        backdrop-filter: blur(22px);
+        max-width: 720px !important;
+      }
+
+      .auth-card input {
+        min-height: 58px;
+        font-size: 17px;
+      }
+
+      @media (min-width: 1180px) {
+        .room:has(.cards) {
+          max-width: 1120px;
+        }
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          display: block;
+          padding: 14px;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          margin-bottom: 16px;
+          padding: 16px !important;
+        }
+
+        .sidebar nav {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .panel > header {
+          position: static;
+          border-radius: 28px !important;
+        }
+
+        .panel > header:after {
+          display: none;
+        }
+
+        .panel header .logo-button {
+          display: none !important;
+        }
+
+        .room {
+          max-width: none;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .sidebar nav {
+          grid-template-columns: 1fr;
+        }
+
+        .cards {
+          grid-template-columns: 1fr !important;
+        }
+
+        .gallery-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .profile,
+        .bubble,
+        .hero,
+        .feature-card {
+          border-radius: 24px !important;
+        }
+
+        .room h2 {
+          font-size: 38px !important;
+        }
+      }
     `}</style>
   );
 }
@@ -982,8 +1631,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['🫧', 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
-    ['🧚', 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
-    ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
+    ['🧚', 'Mentors', 'Friendly helpers for confidence and community support.', 'mentors', 0],
     ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
 
@@ -4899,13 +5547,7 @@ function MentorLoungeRoom({ member }) {
 
   return (
     <section className="room">
-      <div className="mascot-room-hero">
-        <img src="/icons/mentor-fairy.png" alt="Mentors" />
-        <div>
-          <h2>Mentors</h2>
-          <p className="muted">Kind people helping little bubbies feel welcome.</p>
-        </div>
-      </div>
+      <h2>🧚 Mentors</h2>
       <p className="muted">
         Mentors is for friendship, encouragement, confidence, and community support. Mentors are not counsellors, medical professionals, or legal advisors.
       </p>
@@ -5211,13 +5853,7 @@ function NaughtyBabyRoom({ member }) {
 
   return (
     <section className="room">
-      <div className="mascot-room-hero diaper-cop-hero">
-        <img src="/icons/diaper-cop.png" alt="Diaper Cops" />
-        <div>
-          <h2>Diaper Cops</h2>
-          <p className="muted">Report a Naughty Baby.</p>
-        </div>
-      </div>
+      <h2>🚼 Diaper Cops</h2>
       <p className="muted">Tell a Helper Bubby admin about behaviour that needs attention. The reported baby is required so the team can action it properly.</p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
@@ -5353,217 +5989,6 @@ function NaughtyBabyRoom({ member }) {
   );
 }
 
-
-function MemoryBookRoom({ member }) {
-  const [manualMemories, setManualMemories] = useState([]);
-  const [galleryPhotos, setGalleryPhotos] = useState([]);
-  const [friendships, setFriendships] = useState([]);
-  const [stories, setStories] = useState([]);
-  const [memoryTitle, setMemoryTitle] = useState('');
-  const [memoryNote, setMemoryNote] = useState('');
-  const [status, setStatus] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!member?.uid) return;
-    const unsubscribers = [];
-
-    unsubscribers.push(onSnapshot(
-      query(collection(db, 'memoryBook'), orderBy('createdAt', 'desc')),
-      (snapshot) => {
-        setManualMemories(snapshot.docs
-          .map((memoryDoc) => ({ id: memoryDoc.id, ...memoryDoc.data() }))
-          .filter((memory) => memory.ownerUid === member.uid));
-      },
-      (err) => setStatus(err.message || 'Could not load Memory Book entries.')
-    ));
-
-    unsubscribers.push(onSnapshot(
-      query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc')),
-      (snapshot) => {
-        setGalleryPhotos(snapshot.docs
-          .map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }))
-          .filter((photo) => photo.ownerUid === member.uid));
-      },
-      () => {}
-    ));
-
-    unsubscribers.push(onSnapshot(
-      query(collection(db, 'friends'), orderBy('createdAt', 'desc')),
-      (snapshot) => {
-        setFriendships(snapshot.docs
-          .map((friendDoc) => ({ id: friendDoc.id, ...friendDoc.data() }))
-          .filter((friend) => friend.userIds?.includes(member.uid))
-          .filter((friend) => !friend.removed));
-      },
-      () => {}
-    ));
-
-    unsubscribers.push(onSnapshot(
-      query(collection(db, 'stories'), orderBy('createdAt', 'desc')),
-      (snapshot) => {
-        setStories(snapshot.docs
-          .map((storyDoc) => ({ id: storyDoc.id, ...storyDoc.data() }))
-          .filter((story) => !story.setupOnly)
-          .filter((story) => story.requesterUid === member.uid || story.readerUid === member.uid || story.createdByUid === member.uid));
-      },
-      () => {}
-    ));
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [member?.uid]);
-
-  function otherFriendName(friend) {
-    if (friend.userAUid === member.uid) return friend.userBName || 'A little friend';
-    if (friend.userBUid === member.uid) return friend.userAName || 'A little friend';
-    return friend.userNames?.find((name) => name !== member.displayName) || 'A little friend';
-  }
-
-  const automaticMemories = [
-    ...galleryPhotos.map((photo) => ({
-      id: `photo-${photo.id}`,
-      type: 'photo',
-      icon: '📸',
-      title: photo.visibility === 'friends' ? 'Friends-only gallery photo' : 'Gallery photo added',
-      note: photo.visibility === 'friends' ? 'You added a photo for friends eyes only.' : 'You added a photo for everyone to see.',
-      imageUrl: photo.imageUrl,
-      createdAt: photo.createdAt,
-    })),
-    ...friendships.map((friend) => ({
-      id: `friend-${friend.id}`,
-      type: 'friend',
-      icon: '🧸',
-      title: 'New friend made',
-      note: `You and ${otherFriendName(friend)} became friends.`,
-      createdAt: friend.createdAt,
-    })),
-    ...stories.map((story) => ({
-      id: `story-${story.id}`,
-      type: 'story',
-      icon: '📖',
-      title: story.title || story.storyTitle || 'Story memory',
-      note: story.audioUrl ? 'A recorded story became part of your nursery world.' : 'A story moment was created.',
-      createdAt: story.createdAt || story.completedAt,
-    })),
-  ];
-
-  const allMemories = [
-    ...manualMemories.map((memory) => ({ ...memory, icon: memory.icon || '⭐', type: 'manual' })),
-    ...automaticMemories,
-  ].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-
-  async function saveMemory(event) {
-    event.preventDefault();
-    const cleanTitle = memoryTitle.trim();
-    const cleanNote = memoryNote.trim();
-    if (!cleanTitle && !cleanNote) {
-      setStatus('Add a title or note for your special memory.');
-      return;
-    }
-
-    setSaving(true);
-    setStatus('');
-    try {
-      await addDoc(collection(db, 'memoryBook'), {
-        ownerUid: member.uid,
-        ownerName: member.displayName || 'Happy Little Bubby',
-        title: cleanTitle || 'Special Memory',
-        note: cleanNote,
-        icon: '⭐',
-        createdAt: serverTimestamp(),
-      });
-      setMemoryTitle('');
-      setMemoryNote('');
-      setStatus('Memory saved to your Memory Book.');
-    } catch (err) {
-      setStatus(err.message || 'Could not save memory.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteMemory(memory) {
-    if (memory.type !== 'manual') return;
-    const ok = window.confirm('Delete this special memory?');
-    if (!ok) return;
-    try {
-      await deleteDoc(doc(db, 'memoryBook', memory.id));
-      setStatus('Memory deleted.');
-    } catch (err) {
-      setStatus(err.message || 'Could not delete memory.');
-    }
-  }
-
-  return (
-    <section className="room memory-room">
-      <div className="memory-cover">
-        <div className="memory-book-badge">📔</div>
-        <div>
-          <h2>Memory Book</h2>
-          <p className="muted">A private scrapbook of your photos, friends, stories, and special little moments.</p>
-        </div>
-      </div>
-
-      <form className="memory-compose" onSubmit={saveMemory}>
-        <h3>⭐ Add a special memory</h3>
-        <input
-          value={memoryTitle}
-          onChange={(event) => setMemoryTitle(event.target.value)}
-          placeholder="Memory title"
-          maxLength={90}
-        />
-        <textarea
-          value={memoryNote}
-          onChange={(event) => setMemoryNote(event.target.value)}
-          placeholder="Write something you want to remember"
-          maxLength={700}
-        />
-        <button className="primary" type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Save to Memory Book'}
-        </button>
-      </form>
-
-      {status && <p className={status.includes('saved') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
-
-      <div className="memory-stats">
-        <div><strong>{galleryPhotos.length}</strong><span>Photos</span></div>
-        <div><strong>{friendships.length}</strong><span>Friends</span></div>
-        <div><strong>{stories.length}</strong><span>Stories</span></div>
-        <div><strong>{manualMemories.length}</strong><span>Special</span></div>
-      </div>
-
-      <div className="memory-timeline">
-        {allMemories.length === 0 && (
-          <div className="memory-entry empty-memory">
-            <strong>📔 Your Memory Book is ready</strong>
-            <p>Photos, friend moments, stories, and special memories will appear here.</p>
-          </div>
-        )}
-
-        {allMemories.map((memory) => (
-          <article className="memory-entry" key={memory.id}>
-            <div className="memory-dot">{memory.icon}</div>
-            <div className="memory-card">
-              <div className="memory-card-header">
-                <strong>{memory.title || 'Special Memory'}</strong>
-                <span>{formatDate(memory.createdAt)}</span>
-              </div>
-              {memory.note && <p>{memory.note}</p>}
-              {memory.imageUrl && (
-                <img src={memory.imageUrl} alt="Memory" className="memory-photo" draggable={false} />
-              )}
-              {memory.type === 'manual' && (
-                <button type="button" className="link-button memory-delete" onClick={() => deleteMemory(memory)}>
-                  Delete memory
-                </button>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 function PlaceholderRoom({ title }) {
   return (
@@ -6781,46 +7206,6 @@ function ProfileRoom({ member, setMember }) {
 }
 
 
-function NurseryWorldUpgradeStyles() {
-  return (
-    <style>{`
-      .mascot-nav-icon { display:inline-block; object-fit:contain; border-radius:9px; flex-shrink:0; filter:drop-shadow(0 4px 8px rgba(30,58,138,.16)); }
-      .compact-page-header { min-height:74px !important; padding:10px 18px !important; align-items:center !important; gap:12px !important; position:sticky !important; top:12px !important; z-index:50 !important; background:rgba(255,255,255,.90) !important; backdrop-filter:blur(18px) !important; border-radius:24px !important; box-shadow:0 12px 32px rgba(30,58,138,.10) !important; margin-bottom:16px !important; }
-      .mini-brand { width:52px; height:52px; padding:0; border:0; border-radius:18px; background:linear-gradient(135deg,#fff,#eff6ff); display:grid; place-items:center; box-shadow:0 8px 18px rgba(244,114,182,.16); flex-shrink:0; }
-      .mini-brand img { width:44px; height:44px; object-fit:contain; border-radius:14px; }
-      .topbar-title { display:flex; align-items:center; gap:12px; min-width:0; }
-      .topbar-icon { width:46px; height:46px; border-radius:18px; background:linear-gradient(135deg,#dbeafe,#fce7f3); display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(96,165,250,.22); flex-shrink:0; }
-      .topbar-icon .mascot-nav-icon { width:36px !important; height:36px !important; }
-      .compact-page-header small { display:block; font-size:10px !important; line-height:1 !important; margin-bottom:4px; color:#ec4899 !important; letter-spacing:.18em !important; }
-      .compact-page-header h2 { font-size:clamp(22px,3vw,32px) !important; line-height:1.05 !important; margin:0 !important; color:#1e3a8a !important; }
-      .panel header .logo-button, .panel > header .logo-button { display:none !important; }
-      .mascot-room-hero { display:flex; align-items:center; gap:18px; background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(239,246,255,.92),rgba(252,231,243,.78)); border:1px solid rgba(191,219,254,.78); border-radius:28px; padding:18px; margin-bottom:16px; box-shadow:0 18px 42px rgba(30,58,138,.10); }
-      .mascot-room-hero img { width:118px; height:118px; object-fit:contain; border-radius:24px; background:rgba(255,255,255,.74); box-shadow:0 10px 25px rgba(30,58,138,.12); flex-shrink:0; }
-      .mascot-room-hero h2 { margin:0 0 6px !important; }
-      .diaper-cop-hero img { width:128px; height:128px; }
-      .memory-cover { display:flex; align-items:center; gap:18px; padding:24px; border-radius:32px; margin-bottom:18px; background:radial-gradient(circle at 10% 10%,rgba(249,168,212,.38),transparent 28%),radial-gradient(circle at 90% 0%,rgba(96,165,250,.30),transparent 32%),linear-gradient(135deg,rgba(255,255,255,.96),rgba(255,247,237,.92)); border:1px solid rgba(191,219,254,.8); box-shadow:0 20px 50px rgba(30,58,138,.10); }
-      .memory-book-badge { width:82px; height:82px; border-radius:28px; display:grid; place-items:center; font-size:42px; background:linear-gradient(135deg,#fce7f3,#dbeafe); box-shadow:inset 0 0 0 1px rgba(255,255,255,.72),0 12px 26px rgba(244,114,182,.20); flex-shrink:0; }
-      .memory-compose { display:grid; gap:12px; padding:20px; border-radius:28px; margin-bottom:18px; background:rgba(255,255,255,.88); border:1px solid rgba(191,219,254,.76); box-shadow:0 16px 36px rgba(30,58,138,.08); }
-      .memory-compose h3 { margin:0; color:#1e3a8a; }
-      .memory-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
-      .memory-stats div { padding:16px; border-radius:24px; background:rgba(255,255,255,.90); border:1px solid rgba(191,219,254,.68); text-align:center; box-shadow:0 12px 28px rgba(30,58,138,.06); }
-      .memory-stats strong { display:block; font-size:28px; color:#1e3a8a; }
-      .memory-stats span { color:#64748b; font-weight:850; }
-      .memory-timeline { position:relative; display:grid; gap:16px; padding-left:16px; }
-      .memory-timeline:before { content:''; position:absolute; left:30px; top:8px; bottom:8px; width:4px; border-radius:99px; background:linear-gradient(#f9a8d4,#bfdbfe); }
-      .memory-entry { display:grid; grid-template-columns:44px minmax(0,1fr); gap:14px; position:relative; }
-      .memory-dot { width:44px; height:44px; border-radius:999px; background:#fff; border:3px solid #bfdbfe; display:grid; place-items:center; font-size:22px; box-shadow:0 8px 18px rgba(30,58,138,.10); z-index:1; }
-      .memory-card { padding:18px; border-radius:26px; background:rgba(255,255,255,.92); border:1px solid rgba(191,219,254,.72); box-shadow:0 16px 34px rgba(30,58,138,.08); }
-      .memory-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-      .memory-card-header strong { color:#1e3a8a; font-size:18px; }
-      .memory-card-header span { color:#64748b; font-size:12px; font-weight:800; }
-      .memory-photo { width:min(360px,100%); max-height:280px; object-fit:cover; border-radius:22px; display:block; margin-top:12px; box-shadow:0 14px 30px rgba(30,58,138,.12); }
-      .memory-delete { margin:12px 0 0 !important; display:inline-flex !important; }
-      @media (max-width:720px) { .compact-page-header { top:0 !important; border-radius:0 0 24px 24px !important; } .mini-brand { width:44px; height:44px; } .mini-brand img { width:38px; height:38px; } .topbar-icon { width:40px; height:40px; } .compact-page-header h2 { font-size:22px !important; } .mascot-room-hero,.memory-cover { align-items:flex-start; flex-direction:column; } .mascot-room-hero img { width:96px; height:96px; } .memory-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .memory-timeline { padding-left:0; } .memory-timeline:before { display:none; } .memory-entry { grid-template-columns:1fr; } }
-    `}</style>
-  );
-}
-
 function AppShell({ member, setMember }) {
   usePresence(member);
   const counts = useNotificationCounts(member);
@@ -6829,7 +7214,6 @@ function AppShell({ member, setMember }) {
   const [privateMessageRecipient, setPrivateMessageRecipient] = useState(null);
   const active = rooms.find((item) => item.id === room) || rooms[0];
   const bubbleTheme = getBubbleTheme(member.favouriteColour);
-  const ActiveIcon = active.icon;
 
   useEffect(() => {
     const handlePopState = () => {
@@ -6870,7 +7254,13 @@ function AppShell({ member, setMember }) {
     >
       <BubbleThemeStyles theme={bubbleTheme} />
       <SocialBabyPolish />
-      <NurseryWorldUpgradeStyles />
+      <div className="nursery-sparkles" aria-hidden="true">
+        <span>🫧</span>
+        <span>🎀</span>
+        <span>🐱</span>
+        <span>🧸</span>
+        <span>🌸</span>
+      </div>
       <aside className="sidebar">
         <Logo goHome={() => navigateTo('home')} />
         <nav>
@@ -6899,16 +7289,10 @@ function AppShell({ member, setMember }) {
       </aside>
 
       <section className="panel" key={room}>
-        <header className="compact-page-header">
-          <button className="mini-brand" onClick={() => navigateTo('home')} title="Return home">
-            <img src="/logo.png" alt="Happy Little Bubbies logo" />
-          </button>
-          <div className="topbar-title">
-            <span className="topbar-icon"><ActiveIcon size={30} /></span>
-            <div>
-              <small>Happy Little Bubbies</small>
-              <h2>{active.label}</h2>
-            </div>
+        <header>
+          <Logo goHome={() => navigateTo('home')} />
+          <div>
+            <h2>{active.label}</h2>
           </div>
         </header>
 
@@ -6922,10 +7306,9 @@ function AppShell({ member, setMember }) {
         {room === 'stories' && <StoryCornerRoom member={member} />}
         {room === 'admin' && <AdminConsole member={member} />}
         {room === 'profile' && <ProfileRoom member={member} setMember={setMember} />}
-        {room === 'memory' && <MemoryBookRoom member={member} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && room !== 'memory' && <PlaceholderRoom title={active.label} />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
