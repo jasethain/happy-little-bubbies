@@ -95,7 +95,7 @@ const baseRooms = [
   { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
   { id: 'members', label: 'Bubble Family', icon: makeBabyIcon('🫧') },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
-  { id: 'notifications', label: 'Bottle Alerts', icon: makeBabyIcon('🍼') },
+  { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
   { id: 'mentors', label: 'Mentors', icon: makeBabyIcon('🧚') },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
@@ -903,7 +903,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
     ['🫧', 'Bubble Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
-    ['🍼', 'Bottle Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
+    ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     ['🧚', 'Mentors', 'Friendly helpers for confidence and community support.', 'mentors', 0],
     ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
@@ -1801,6 +1801,8 @@ function FriendsRoom({ member }) {
   const [inviteCode, setInviteCode] = useState('');
   const [inviteStatus, setInviteStatus] = useState('');
   const [creatingInvite, setCreatingInvite] = useState(false);
+  const [viewRequestProfile, setViewRequestProfile] = useState(null);
+  const [loadingRequestProfile, setLoadingRequestProfile] = useState(false);
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -1990,6 +1992,44 @@ function FriendsRoom({ member }) {
     }
   }
 
+  async function openRequestorBubble(request) {
+    if (!request?.fromUid) return;
+
+    setStatus('');
+    setLoadingRequestProfile(true);
+
+    try {
+      let accountData = availableUsers.find((user) => user.uid === request.fromUid) || null;
+
+      if (!accountData) {
+        const accountDoc = await getDoc(doc(db, 'users', request.fromUid));
+        if (accountDoc.exists()) {
+          accountData = { id: accountDoc.id, ...accountDoc.data(), uid: request.fromUid };
+        }
+      }
+
+      if (!accountData) {
+        accountData = {
+          uid: request.fromUid,
+          displayName: request.fromName || 'Happy Little Bubby',
+        };
+      }
+
+      const bubbleProfile = await getBubbleProfile(request.fromUid, accountData);
+
+      setViewRequestProfile({
+        ...accountData,
+        ...bubbleProfile,
+        uid: request.fromUid,
+        displayName: bubbleProfile.displayName || accountData.displayName || request.fromName || 'Happy Little Bubby',
+      });
+    } catch (err) {
+      setStatus(err.message || 'Could not open this member’s Bubble.');
+    } finally {
+      setLoadingRequestProfile(false);
+    }
+  }
+
   const incoming = requests.filter((request) => request.toUid === member.uid && request.status === 'pending');
   const outgoing = requests.filter((request) => request.fromUid === member.uid && request.status === 'pending');
 
@@ -2123,8 +2163,27 @@ function FriendsRoom({ member }) {
           {incoming.length === 0 && <p>No incoming requests.</p>}
           {incoming.map((request) => (
             <div className="bubble" key={request.id}>
-              <strong>{request.fromName}</strong>
-              <p className="muted">Friend request from this member</p>
+              <button
+                type="button"
+                onClick={() => openRequestorBubble(request)}
+                disabled={loadingRequestProfile}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  color: '#ec4899',
+                  fontWeight: 900,
+                  fontSize: 18,
+                  padding: 0,
+                  cursor: loadingRequestProfile ? 'wait' : 'pointer',
+                  textDecoration: 'underline',
+                  textDecorationThickness: 2,
+                  textUnderlineOffset: 4,
+                }}
+                title="View this member’s Bubble"
+              >
+                {request.fromName || 'Happy Little Bubby'}
+              </button>
+              <p className="muted">Friend request from this member. Click their name to view their Bubble.</p>
               <button className="primary" onClick={() => acceptFriendRequest(request)}>Accept</button>
               <button className="link-button" onClick={() => declineFriendRequest(request)}>Decline</button>
             </div>
@@ -2165,6 +2224,104 @@ function FriendsRoom({ member }) {
           })}
         </div>
       </div>
+
+
+      {viewRequestProfile && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewRequestProfile.displayName || 'Member'} Bubble`}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(15, 23, 42, 0.48)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+          }}
+          onClick={() => setViewRequestProfile(null)}
+        >
+          <div
+            className="profile"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(680px, 100%)',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              border: '3px solid #bfdbfe',
+              boxShadow: '0 24px 70px rgba(15, 23, 42, 0.26)',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
+              {viewRequestProfile.photoUrl ? (
+                <img
+                  src={viewRequestProfile.photoUrl}
+                  alt=""
+                  style={{
+                    width: 92,
+                    height: 92,
+                    borderRadius: 999,
+                    objectFit: 'cover',
+                    background: '#ffffff',
+                    border: '4px solid #f9a8d4',
+                  }}
+                />
+              ) : (
+                <div className="avatar" style={{ width: 92, height: 92, fontSize: 40 }}>
+                  {viewRequestProfile.avatar || '🧸'}
+                </div>
+              )}
+
+              <div>
+                <h2 style={{ marginBottom: 6 }}>{viewRequestProfile.displayName || 'Happy Little Bubby'}</h2>
+                <p className="muted" style={{ margin: 0 }}>
+                  {viewRequestProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bubble" style={{ marginBottom: 16 }}>
+              <strong>Bio</strong>
+              {viewRequestProfile.bio ? (
+                <p style={{ whiteSpace: 'pre-wrap' }}>{viewRequestProfile.bio}</p>
+              ) : (
+                <p className="muted">This member has not added a bio yet.</p>
+              )}
+            </div>
+
+            <p><strong>Favourite colour:</strong> {viewRequestProfile.favouriteColour || 'Baby Blue'}</p>
+            <p>
+              <strong>Gender:</strong>{' '}
+              {viewRequestProfile.gender === 'Self-describe'
+                ? viewRequestProfile.customGender || 'Self-described'
+                : viewRequestProfile.gender || 'Prefer not to say'}
+            </p>
+
+            {viewRequestProfile.interestsVisibility === 'Private' ? (
+              <p><strong>Community interests:</strong> Hidden by member privacy setting</p>
+            ) : (
+              <p>
+                <strong>Community interests:</strong>{' '}
+                {(viewRequestProfile.communityInterests || []).length
+                  ? viewRequestProfile.communityInterests.join(', ')
+                  : 'None selected'}
+              </p>
+            )}
+
+            <div className="badges" style={{ marginTop: 12 }}>
+              {(viewRequestProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
+              {viewRequestProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
+              <button type="button" className="primary" onClick={() => setViewRequestProfile(null)}>
+                Close Bubble
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2739,7 +2896,7 @@ function NotificationsRoom({ member, counts }) {
 
   return (
     <section className="room">
-      <h2>🍼 Bottle Alerts</h2>
+      <h2>🍼 Little Alerts</h2>
       <p className="muted">Your unread bubbles, friend requests, and chat nudges.</p>
 
       <div className="cards">
