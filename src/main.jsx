@@ -807,6 +807,7 @@ function InboxRoom({ member, initialRecipient }) {
   const [messages, setMessages] = useState([]);
   const [inboxStatus, setInboxStatus] = useState('');
   const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     if (initialRecipient?.uid) {
@@ -841,15 +842,90 @@ function InboxRoom({ member, initialRecipient }) {
     const unsubscribe = onSnapshot(
       inboxQuery,
       (snapshot) => {
-        const allMessages = snapshot.docs.map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }));
-        const myMessages = allMessages.filter((msg) => msg.toUid === member.uid || msg.fromUid === member.uid);
-        setMessages(myMessages);
+        const allMessages = snapshot.docs
+          .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+          .filter((msg) => msg.toUid === member.uid || msg.fromUid === member.uid)
+          .filter((msg) => !(msg.deletedFor || []).includes(member.uid));
+
+        setMessages(allMessages);
+
+        if (!selectedRecipientUid && allMessages.length > 0) {
+          const latest = allMessages[0];
+          const otherUid = latest.fromUid === member.uid ? latest.toUid : latest.fromUid;
+          if (otherUid) setSelectedRecipientUid(otherUid);
+        }
       },
       (err) => setInboxStatus(err.message || 'Could not load private inbox.')
     );
 
     return unsubscribe;
-  }, [member.uid]);
+  }, [member.uid, selectedRecipientUid]);
+
+  useEffect(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [selectedRecipientUid, messages.length]);
+
+  function nameForUid(uid) {
+    if (uid === member.uid) return member.displayName || 'Me';
+    const knownUser = availableUsers.find((user) => user.uid === uid);
+    if (knownUser?.displayName) return knownUser.displayName;
+
+    const knownMessage = messages.find((msg) => msg.fromUid === uid || msg.toUid === uid);
+    if (!knownMessage) return 'Happy Little Bubby';
+
+    return knownMessage.fromUid === uid
+      ? knownMessage.fromName || 'Happy Little Bubby'
+      : knownMessage.toName || 'Happy Little Bubby';
+  }
+
+  function initialsForName(name) {
+    return String(name || 'HB')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'HB';
+  }
+
+  const conversations = Object.values(
+    messages.reduce((acc, msg) => {
+      const otherUid = msg.fromUid === member.uid ? msg.toUid : msg.fromUid;
+      if (!otherUid) return acc;
+
+      if (!acc[otherUid]) {
+        acc[otherUid] = {
+          uid: otherUid,
+          name: nameForUid(otherUid),
+          latest: msg,
+          unread: 0,
+        };
+      }
+
+      if (msg.toUid === member.uid && msg.read === false) {
+        acc[otherUid].unread += 1;
+      }
+
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    const aTime = a.latest?.createdAt?.toMillis?.() || 0;
+    const bTime = b.latest?.createdAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+
+  const selectedMessages = messages
+    .filter((msg) => {
+      if (!selectedRecipientUid) return false;
+      return (
+        (msg.fromUid === member.uid && msg.toUid === selectedRecipientUid) ||
+        (msg.fromUid === selectedRecipientUid && msg.toUid === member.uid)
+      );
+    })
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return aTime - bTime;
+    });
 
   async function markMessageRead(msg) {
     if (msg.toUid === member.uid && msg.read === false) {
@@ -857,6 +933,40 @@ function InboxRoom({ member, initialRecipient }) {
         read: true,
         readAt: serverTimestamp(),
       });
+    }
+  }
+
+  async function markThreadRead(uid) {
+    const unreadMessages = messages.filter((msg) => msg.fromUid === uid && msg.toUid === member.uid && msg.read === false);
+    await Promise.all(unreadMessages.map((msg) => markMessageRead(msg)));
+  }
+
+  function openConversation(uid) {
+    setSelectedRecipientUid(uid);
+    markThreadRead(uid);
+  }
+
+  async function deletePrivateMessage(event, msg) {
+    event.stopPropagation();
+
+    const otherName = msg.fromUid === member.uid ? msg.toName : msg.fromName;
+    const ok = window.confirm(`Delete this message from your inbox${otherName ? ` with ${otherName}` : ''}?`);
+    if (!ok) return;
+
+    try {
+      const existingDeletedFor = Array.isArray(msg.deletedFor) ? msg.deletedFor : [];
+      const nextDeletedFor = existingDeletedFor.includes(member.uid)
+        ? existingDeletedFor
+        : [...existingDeletedFor, member.uid];
+
+      await updateDoc(doc(db, 'privateMessages', msg.id), {
+        deletedFor: nextDeletedFor,
+        deletedAt: serverTimestamp(),
+      });
+
+      setInboxStatus('Message deleted from your inbox.');
+    } catch (err) {
+      setInboxStatus(err.message || 'Could not delete message.');
     }
   }
 
@@ -869,9 +979,12 @@ function InboxRoom({ member, initialRecipient }) {
     setInboxStatus('');
 
     try {
-      const recipient = availableUsers.find((user) => user.uid === selectedRecipientUid);
+      const recipient = availableUsers.find((user) => user.uid === selectedRecipientUid) || {
+        uid: selectedRecipientUid,
+        displayName: nameForUid(selectedRecipientUid),
+      };
 
-      if (!recipient) throw new Error('Please choose a valid member from the list.');
+      if (!recipient?.uid) throw new Error('Please choose a valid member from the list.');
 
       await addDoc(collection(db, 'privateMessages'), {
         fromUid: member.uid,
@@ -880,11 +993,12 @@ function InboxRoom({ member, initialRecipient }) {
         toName: recipient.displayName || 'Happy Little Bubby',
         body: cleanBody,
         read: false,
+        deletedFor: [],
         createdAt: serverTimestamp(),
       });
 
-      setSelectedRecipientUid('');
       setBody('');
+      setSelectedRecipientUid(recipient.uid);
       setInboxStatus('Private message sent.');
     } catch (err) {
       setInboxStatus(err.message || 'Private message could not be sent.');
@@ -893,96 +1007,341 @@ function InboxRoom({ member, initialRecipient }) {
     }
   }
 
+  const selectedName = selectedRecipientUid ? nameForUid(selectedRecipientUid) : '';
+
   return (
     <section className="room">
       <h2>Private Inbox</h2>
-      <p className="muted">Send private messages to other approved members by name.</p>
+      <p className="muted">Private messages are shown by member name. Email addresses stay hidden.</p>
 
-      <div className="profile" style={{ marginBottom: 20 }}>
-        <h3>Send a private message</h3>
-        <form className="form compact" onSubmit={sendPrivateMessage}>
-          <select value={selectedRecipientUid} onChange={(e) => setSelectedRecipientUid(e.target.value)}>
-            <option value="">Choose a member</option>
-            {availableUsers.map((user) => (
-              <option key={user.uid} value={user.uid}>
-                {user.displayName || 'Happy Little Bubby'}
-              </option>
-            ))}
-          </select>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your private message" />
-          <button type="submit" disabled={sending || !selectedRecipientUid || !body.trim()}>
-            {sending ? 'Sending...' : 'Send private message'}
-          </button>
-        </form>
-        {inboxStatus && <p className={inboxStatus.includes('sent') || inboxStatus.includes('ready') ? 'success' : 'error'}>{inboxStatus}</p>}
-      </div>
-
-      <h3>Messages</h3>
-      <div className="list">
-        {messages.length === 0 && (
-          <div className="bubble">
-            <strong>No private messages yet</strong>
-            <p>Your private inbox is soft, quiet, and waiting.</p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 340px) 1fr',
+          gap: 18,
+          alignItems: 'stretch',
+        }}
+      >
+        <div
+          className="profile"
+          style={{
+            marginBottom: 0,
+            padding: 0,
+            overflow: 'hidden',
+            minHeight: 620,
+          }}
+        >
+          <div style={{ padding: 22, borderBottom: '1px solid #e5e7eb' }}>
+            <h3 style={{ marginTop: 0 }}>Messages</h3>
+            <select
+              value={selectedRecipientUid}
+              onChange={(e) => openConversation(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              <option value="">Start a message</option>
+              {availableUsers.map((user) => (
+                <option key={user.uid} value={user.uid}>
+                  {user.displayName || 'Happy Little Bubby'}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {messages.map((msg) => {
-          const sentByMe = msg.fromUid === member.uid;
-          return (
-            <div className="bubble" key={msg.id} onClick={() => markMessageRead(msg)}>
-              <strong>{sentByMe ? `To: ${msg.toName || 'Happy Little Bubby'}` : `From: ${msg.fromName || 'Happy Little Bubby'}`}</strong>
-              {!sentByMe && msg.read === false && <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>NEW</span>}
-              <p>{msg.body}</p>
+          <div style={{ maxHeight: 540, overflowY: 'auto' }}>
+            {conversations.length === 0 && (
+              <div style={{ padding: 22 }}>
+                <p className="muted">No conversations yet.</p>
+              </div>
+            )}
 
-              {msg.callUrl && (
-                <div className="success" style={{ marginTop: 12 }}>
-                  <strong>{msg.callType === 'audio' ? '📞 Audio call' : '🎥 Video call'}</strong>
-                  <p>{msg.fromName || 'A member'} invited you to join a private call.</p>
-                  <a
-                    href={msg.callUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="primary"
+            {conversations.map((conversation) => {
+              const selected = conversation.uid === selectedRecipientUid;
+              const preview = conversation.latest?.body || conversation.latest?.lastMessage || 'Message';
+              return (
+                <button
+                  key={conversation.uid}
+                  type="button"
+                  onClick={() => openConversation(conversation.uid)}
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    borderBottom: '1px solid #e5e7eb',
+                    background: selected ? '#eaf2ff' : '#ffffff',
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span
                     style={{
-                      display: 'inline-block',
-                      padding: '10px 16px',
+                      width: 48,
+                      height: 48,
                       borderRadius: 999,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Join call
-                  </a>
-                </div>
-              )}
-
-              {msg.audioUrl && (
-                <div style={{ marginTop: 12 }}>
-                  <a
-                    href={msg.audioUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      color: '#ec4899',
+                      background: selected ? '#60a5fa' : '#fce7f3',
+                      color: selected ? '#ffffff' : '#1e3a8a',
+                      display: 'grid',
+                      placeItems: 'center',
                       fontWeight: 900,
-                      textDecoration: 'none',
-                      display: 'inline-block',
-                      marginBottom: 10,
+                      flexShrink: 0,
                     }}
                   >
-                    🎧 {msg.audioFileName || 'Open recorded story'}
-                  </a>
+                    {initialsForName(conversation.name)}
+                  </span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <strong style={{ color: '#1e3a8a' }}>{conversation.name}</strong>
+                      {conversation.unread > 0 && (
+                        <span
+                          style={{
+                            background: '#f472b6',
+                            color: '#ffffff',
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            fontSize: 12,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {conversation.unread}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="muted"
+                      style={{
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginTop: 4,
+                      }}
+                    >
+                      {preview}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                  <audio controls src={msg.audioUrl} style={{ width: '100%' }}>
-                    Your browser does not support audio playback.
-                  </audio>
-                </div>
-              )}
-
-              <p className="muted">{sentByMe ? 'Sent' : msg.read === false ? 'Unread, click to mark read' : 'Read'}</p>
+        <div
+          className="profile"
+          style={{
+            marginBottom: 0,
+            padding: 0,
+            overflow: 'hidden',
+            minHeight: 620,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              padding: 20,
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 999,
+                background: '#fce7f3',
+                color: '#1e3a8a',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 900,
+                flexShrink: 0,
+              }}
+            >
+              {selectedName ? initialsForName(selectedName) : '💌'}
+            </span>
+            <div>
+              <h3 style={{ margin: 0 }}>{selectedName || 'Choose a member'}</h3>
+              <p className="muted" style={{ margin: 0 }}>Private conversation</p>
             </div>
-          );
-        })}
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              padding: 20,
+              background: 'linear-gradient(180deg, #f8fbff, #ffffff)',
+              overflowY: 'auto',
+              maxHeight: 430,
+            }}
+          >
+            {!selectedRecipientUid && (
+              <div className="bubble">
+                <strong>Pick a member</strong>
+                <p>Choose someone from the left to start or continue a private chat.</p>
+              </div>
+            )}
+
+            {selectedRecipientUid && selectedMessages.length === 0 && (
+              <div className="bubble">
+                <strong>No messages yet</strong>
+                <p>Send the first private bubble to {selectedName}.</p>
+              </div>
+            )}
+
+            {selectedMessages.map((msg) => {
+              const sentByMe = msg.fromUid === member.uid;
+              return (
+                <div
+                  key={msg.id}
+                  onClick={() => markMessageRead(msg)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: sentByMe ? 'flex-end' : 'flex-start',
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '72%',
+                      background: sentByMe ? '#60a5fa' : '#f5f7fb',
+                      color: sentByMe ? '#ffffff' : '#1f2937',
+                      borderRadius: sentByMe ? '22px 22px 6px 22px' : '22px 22px 22px 6px',
+                      padding: '12px 14px',
+                      boxShadow: '0 10px 24px rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                      <strong style={{ color: sentByMe ? '#ffffff' : '#1e3a8a' }}>
+                        {sentByMe ? 'You' : msg.fromName || 'Happy Little Bubby'}
+                      </strong>
+                      {!sentByMe && msg.read === false && (
+                        <span style={{ color: '#ec4899', fontWeight: 900, fontSize: 12 }}>NEW</span>
+                      )}
+                    </div>
+
+                    {msg.body && <p style={{ margin: '8px 0 6px' }}>{msg.body}</p>}
+
+                    {msg.callUrl && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          background: sentByMe ? 'rgba(255,255,255,0.16)' : '#ffffff',
+                          borderRadius: 16,
+                          padding: 12,
+                        }}
+                      >
+                        <strong>{msg.callType === 'audio' ? '📞 Audio call' : '🎥 Video call'}</strong>
+                        <p>{msg.fromName || 'A member'} invited you to join a private call.</p>
+                        <a
+                          href={msg.callUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="primary"
+                          style={{
+                            display: 'inline-block',
+                            padding: '10px 16px',
+                            borderRadius: 999,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Join call
+                        </a>
+                      </div>
+                    )}
+
+                    {msg.audioUrl && (
+                      <div style={{ marginTop: 12 }}>
+                        <a
+                          href={msg.audioUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            color: sentByMe ? '#ffffff' : '#ec4899',
+                            fontWeight: 900,
+                            textDecoration: 'none',
+                            display: 'inline-block',
+                            marginBottom: 10,
+                          }}
+                        >
+                          🎧 {msg.audioFileName || 'Open recorded story'}
+                        </a>
+
+                        <audio controls src={msg.audioUrl} style={{ width: '100%' }}>
+                          Your browser does not support audio playback.
+                        </audio>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <span style={{ fontSize: 12, opacity: 0.82 }}>
+                        {formatDate(msg.createdAt)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => deletePrivateMessage(event, msg)}
+                        style={{
+                          border: 0,
+                          borderRadius: 999,
+                          padding: '5px 10px',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          background: sentByMe ? 'rgba(255,255,255,0.22)' : '#fee2e2',
+                          color: sentByMe ? '#ffffff' : '#be123c',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          <form
+            onSubmit={sendPrivateMessage}
+            style={{
+              padding: 18,
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-end',
+              background: '#ffffff',
+            }}
+          >
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={selectedRecipientUid ? `Message ${selectedName}` : 'Choose a member first'}
+              disabled={!selectedRecipientUid}
+              style={{
+                flex: 1,
+                minHeight: 58,
+                maxHeight: 130,
+                border: 0,
+                borderRadius: 22,
+                padding: 16,
+                background: '#f5f7fb',
+                resize: 'vertical',
+              }}
+            />
+            <button
+              type="submit"
+              className="primary"
+              disabled={sending || !selectedRecipientUid || !body.trim()}
+              style={{ minWidth: 120 }}
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </form>
+        </div>
       </div>
+
+      {inboxStatus && <p className={inboxStatus.includes('sent') || inboxStatus.includes('ready') || inboxStatus.includes('deleted') ? 'success' : 'error'}>{inboxStatus}</p>}
     </section>
   );
 }
