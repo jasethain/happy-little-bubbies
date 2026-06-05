@@ -106,19 +106,24 @@ function makeMascotIcon(src, alt) {
   };
 }
 
+const NurseryChatIcon = makeMascotIcon('/image_cf92755a.png', 'Nursery Chat');
+const NurseryFamilyIcon = makeMascotIcon('/image_9d6f08a6.png', 'Nursery Family');
+const MentorFairyIcon = makeMascotIcon('/mentor-fairy.png', 'Mentors');
+const DiaperCopIcon = makeMascotIcon('/diaper-cop.png', 'Diaper Cops');
+
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
-  { id: 'chat', label: 'Nursery Chat', icon: makeMascotIcon('/icons/image_cf92755a.png', 'Nursery Chat') },
+  { id: 'chat', label: 'Nursery Chat', icon: NurseryChatIcon },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
-  { id: 'members', label: 'Nursery Family', icon: makeMascotIcon('/icons/image_9d6f08a6.png', 'Nursery Family') },
+  { id: 'members', label: 'Nursery Family', icon: NurseryFamilyIcon },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
-  { id: 'mentors', label: 'Mentors', icon: makeMascotIcon('/icons/mentor-fairy.png', 'Mentors') },
+  { id: 'mentors', label: 'Mentors', icon: MentorFairyIcon },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
   { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
-  { id: 'safety', label: 'Diaper Cops', icon: makeMascotIcon('/icons/diaper-cop.png', 'Diaper Cops') },
+  { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
@@ -678,7 +683,8 @@ function useNotificationCounts(member) {
     unsubscribers.push(onSnapshot(requestsQuery, (snapshot) => {
       const incomingRequests = snapshot.docs
         .map((item) => item.data())
-        .filter((request) => request.toUid === member.uid && request.status === 'pending').length;
+        .filter((request) => request.toUid === member.uid && request.status === 'pending')
+        .filter((request) => !(request.viewedBy || []).includes(member.uid)).length;
 
       setCounts((prev) => {
         const next = { ...prev, friendRequests: incomingRequests };
@@ -854,6 +860,45 @@ function SocialBabyPolish() {
       .mascot-nav-icon { object-fit:contain; border-radius:14px; padding:2px; background:rgba(255,255,255,.92); box-shadow:0 6px 16px rgba(30,58,138,.12); transition:transform 180ms ease, filter 180ms ease, box-shadow 180ms ease; }
       nav button:hover .mascot-nav-icon { transform:scale(1.10) rotate(-2deg); filter:drop-shadow(0 6px 14px rgba(244,114,182,.26)); }
       nav button.active .mascot-nav-icon { transform:scale(1.12); box-shadow:0 8px 18px rgba(244,114,182,.28); }
+      .tile-art-icon {
+        width: 82px !important;
+        height: 82px !important;
+        display: grid !important;
+        place-items: center !important;
+        border-radius: 24px !important;
+        background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(252,231,243,.86)) !important;
+        border: 1px solid rgba(191,219,254,.78) !important;
+        box-shadow: 0 14px 32px rgba(30,58,138,.12) !important;
+        margin-bottom: 14px !important;
+        overflow: hidden !important;
+      }
+      .tile-art-icon .mascot-nav-icon {
+        width: 70px !important;
+        height: 70px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 18px !important;
+      }
+      .feature-card:hover .tile-art-icon .mascot-nav-icon {
+        transform: scale(1.08) rotate(-2deg);
+      }
+      .room-title-with-art {
+        display: flex !important;
+        align-items: center !important;
+        gap: 14px !important;
+        flex-wrap: wrap !important;
+      }
+      .room-title-with-art .mascot-nav-icon {
+        width: 64px !important;
+        height: 64px !important;
+        border-radius: 18px !important;
+        background: #ffffff !important;
+        box-shadow: 0 12px 28px rgba(30,58,138,.14) !important;
+      }
+      .mascot-room-hero img {
+        object-fit: contain !important;
+        background: #ffffff !important;
+      }
     `}</style>
   );
 }
@@ -979,13 +1024,14 @@ function HomeRoom({ setRoom, member, counts }) {
   const [welcomePhrase] = useState(() => pickWelcomePhrase());
 
   const cards = [
-    ['🔤', 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
+    [<NurseryChatIcon size={62} />, 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
-    ['🫧', 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
+    [<NurseryFamilyIcon size={62} />, 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
-    ['🧚', 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
+    [<MentorFairyIcon size={62} />, 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
+    [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper Bubby admins.', 'safety', 0],
     ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
     ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
@@ -1017,9 +1063,9 @@ function HomeRoom({ setRoom, member, counts }) {
       )}
 
       <div className="cards">
-        {cards.map(([emoji, title, text, target, count]) => (
+        {cards.map(([icon, title, text, target, count]) => (
           <button className="feature-card" key={title} onClick={() => setRoom(target)}>
-            <span>{emoji}</span>
+            <span className="tile-art-icon">{icon}</span>
             <h3>{title} {count ? `(${count})` : ''}</h3>
             <p>{text}</p>
           </button>
@@ -1399,7 +1445,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
 
   return (
     <section className="room">
-      <h2>🔤 Nursery Chat</h2>
+      <h2 className="room-title-with-art"><NurseryChatIcon size={64} /> Nursery Chat</h2>
       <p className="muted">Live community chat for invited members. Right-click a member name to send them a private message.</p>
       {chatError && <p className="error">{chatError}</p>}
 
@@ -3249,6 +3295,10 @@ function NotificationsRoom({ member, counts }) {
   const [unreadChats, setUnreadChats] = useState([]);
 
   useEffect(() => {
+    markLittleAlertsViewed(member.uid);
+  }, [member.uid]);
+
+  useEffect(() => {
     const requestsQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
       const incoming = snapshot.docs
@@ -4510,6 +4560,64 @@ function AdminConsole({ member }) {
     }
   }
 
+
+  async function deleteMatchingDocs(collectionName, fieldName, value, operator = '==') {
+    if (!value) return;
+
+    const matchingQuery = query(collection(db, collectionName), where(fieldName, operator, value));
+    const snapshot = await getDocs(matchingQuery);
+    await Promise.all(snapshot.docs.map((item) => deleteDoc(doc(db, collectionName, item.id))));
+  }
+
+  async function deleteMemberFromOnlineList(person) {
+    const uidToDelete = person?.uid || person?.id;
+    if (!uidToDelete) {
+      setStatus('Could not delete member because no UID was found.');
+      return;
+    }
+
+    if (uidToDelete === member.uid) {
+      setStatus('You cannot delete your own Helper Bubby admin account while you are signed in.');
+      return;
+    }
+
+    const account = users.find((user) => user.uid === uidToDelete || user.id === uidToDelete) || person;
+    const displayName = account.displayName || account.email || 'this member';
+    const confirmText = `Delete ${displayName} from Happy Little Bubbies?
+
+This removes their app profile, presence record, private messages, friend requests, chat posts, photos, mentor records, and reports from Firestore.
+
+Important: this does not delete the Firebase Authentication login. To fully block sign-in, also delete or disable the user in Firebase Authentication.`;
+
+    const ok = window.confirm(confirmText);
+    if (!ok) return;
+
+    try {
+      setStatus(`Deleting ${displayName}...`);
+
+      await Promise.all([
+        deleteDoc(doc(db, 'presence', uidToDelete)),
+        deleteDoc(doc(db, 'users', uidToDelete)),
+        deleteDoc(doc(db, 'userProfiles', uidToDelete)),
+        deleteMatchingDocs('privateMessages', 'fromUid', uidToDelete),
+        deleteMatchingDocs('privateMessages', 'toUid', uidToDelete),
+        deleteMatchingDocs('friendRequests', 'fromUid', uidToDelete),
+        deleteMatchingDocs('friendRequests', 'toUid', uidToDelete),
+        deleteMatchingDocs('friends', 'userIds', uidToDelete, 'array-contains'),
+        deleteMatchingDocs('chatMessages', 'senderUid', uidToDelete),
+        deleteMatchingDocs('bubblePhotos', 'ownerUid', uidToDelete),
+        deleteMatchingDocs('mentorProfiles', 'uid', uidToDelete),
+        deleteMatchingDocs('mentorRequests', 'requesterUid', uidToDelete),
+        deleteMatchingDocs('reports', 'reporterUid', uidToDelete),
+        deleteMatchingDocs('naughtyBabyReports', 'reporterUid', uidToDelete),
+      ]);
+
+      setStatus(`${displayName} has been deleted from the app records. Remember to remove or disable their Firebase Authentication user if you want to block future sign-in.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not delete member.');
+    }
+  }
+
   async function createInviteCode(event) {
     event.preventDefault();
 
@@ -4605,13 +4713,26 @@ function AdminConsole({ member }) {
           <span>🟢</span>
           <h3>Online Members</h3>
           {presenceList.length === 0 && <p>No presence records yet.</p>}
-          {presenceList.map((person) => (
-            <div className="bubble" key={person.id}>
-              <strong>{person.displayName || 'Member'}</strong>
-              <p className="muted">Happy Little Bubbies member</p>
-              <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
-            </div>
-          ))}
+          {presenceList.map((person) => {
+            const account = users.find((user) => user.uid === person.uid || user.id === person.uid);
+            const isCurrentAdmin = (person.uid || person.id) === member.uid;
+            return (
+              <div className="bubble" key={person.id}>
+                <strong>{person.displayName || account?.displayName || 'Member'}</strong>
+                <p className="muted">Happy Little Bubbies member</p>
+                <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
+                <p className="muted">Role: {account?.role || 'member'} | Status: {account?.status || 'unknown'}</p>
+                <SoftActionButton
+                  danger
+                  disabled={isCurrentAdmin}
+                  title={isCurrentAdmin ? 'You cannot delete your own signed-in admin account.' : 'Delete this member from the app records'}
+                  onClick={() => deleteMemberFromOnlineList({ ...person, ...account, uid: person.uid || account?.uid || person.id })}
+                >
+                  🗑️ Delete user
+                </SoftActionButton>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -4903,7 +5024,7 @@ function MentorLoungeRoom({ member }) {
   return (
     <section className="room">
       <div className="mascot-room-hero">
-        <img src="/icons/mentor-fairy.png" alt="Mentors" />
+        <img src="/mentor-fairy.png" alt="Mentors" />
         <div>
           <h2>Mentors</h2>
           <p className="muted">Kind people helping little bubbies feel welcome.</p>
@@ -5215,7 +5336,7 @@ function NaughtyBabyRoom({ member }) {
   return (
     <section className="room">
       <div className="mascot-room-hero diaper-cop-hero">
-        <img src="/icons/diaper-cop.png" alt="Diaper Cops" />
+        <img src="/diaper-cop.png" alt="Diaper Cops" />
         <div>
           <h2>Diaper Cops</h2>
           <p className="muted">Report a Naughty Baby.</p>
@@ -5917,7 +6038,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
 
   return (
     <section className="room">
-      <h2>Members</h2>
+      <h2 className="room-title-with-art"><NurseryFamilyIcon size={64} /> Nursery Family</h2>
       <p className="muted">Browse member bubbles by display name. Email addresses and user IDs stay private.</p>
 
       <div
@@ -6824,6 +6945,74 @@ function NurseryWorldUpgradeStyles() {
   );
 }
 
+
+async function markPrivateInboxViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'privateMessages'), orderBy('createdAt', 'desc')));
+    const updates = snapshot.docs
+      .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+      .filter((msg) => msg.toUid === uid && msg.read === false)
+      .map((msg) => updateDoc(doc(db, 'privateMessages', msg.id), {
+        read: true,
+        readAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear private message notifications:', err);
+  }
+}
+
+async function markFriendChatsViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'friendChats'), orderBy('updatedAt', 'desc')));
+    const updates = snapshot.docs
+      .map((chatDoc) => ({ id: chatDoc.id, ...chatDoc.data() }))
+      .filter((chat) => chat.participants?.includes(uid))
+      .filter((chat) => (chat.unreadBy || []).includes(uid))
+      .map((chat) => updateDoc(doc(db, 'friendChats', chat.id), {
+        unreadBy: (chat.unreadBy || []).filter((item) => item !== uid),
+        viewedAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear friend chat notifications:', err);
+  }
+}
+
+async function markFriendRequestsViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc')));
+    const updates = snapshot.docs
+      .map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }))
+      .filter((request) => request.toUid === uid && request.status === 'pending')
+      .filter((request) => !(request.viewedBy || []).includes(uid))
+      .map((request) => updateDoc(doc(db, 'friendRequests', request.id), {
+        viewedBy: [...new Set([...(request.viewedBy || []), uid])],
+        viewedAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear friend request notifications:', err);
+  }
+}
+
+async function markLittleAlertsViewed(uid) {
+  await Promise.all([
+    markPrivateInboxViewed(uid),
+    markFriendChatsViewed(uid),
+    markFriendRequestsViewed(uid),
+  ]);
+}
+
 function AppShell({ member, setMember }) {
   usePresence(member);
   const counts = useNotificationCounts(member);
@@ -6853,6 +7042,23 @@ function AppShell({ member, setMember }) {
     }
 
     setRoom(nextRoom);
+
+    if (nextRoom === 'notifications') {
+      markLittleAlertsViewed(member.uid);
+    }
+
+    if (nextRoom === 'inbox') {
+      markPrivateInboxViewed(member.uid);
+    }
+
+    if (nextRoom === 'friendChat') {
+      markFriendChatsViewed(member.uid);
+    }
+
+    if (nextRoom === 'friends') {
+      markFriendRequestsViewed(member.uid);
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
