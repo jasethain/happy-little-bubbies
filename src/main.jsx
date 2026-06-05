@@ -1244,7 +1244,205 @@ function SocialBabyPolish() {
           border-radius: 22px !important;
         }
       }
-    `}</style>
+    `}
+
+      /* Major nursery-social polish: clearer badges, richer cards, softer Facebook-like surfaces */
+      .badges {
+        display: flex !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        padding: 10px !important;
+        border-radius: 24px !important;
+        background: linear-gradient(135deg, rgba(239,246,255,.94), rgba(252,231,243,.9)) !important;
+        border: 1px solid rgba(191,219,254,.72) !important;
+      }
+
+      .badges span,
+      .profile .badges span,
+      .bubble .badges span {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        min-height: 34px !important;
+        padding: 7px 13px !important;
+        border-radius: 999px !important;
+        background: rgba(255,255,255,.96) !important;
+        color: #1e3a8a !important;
+        border: 1px solid rgba(96,165,250,.35) !important;
+        box-shadow: 0 8px 18px rgba(30,58,138,.10) !important;
+        font-weight: 950 !important;
+        text-shadow: none !important;
+        line-height: 1.1 !important;
+      }
+
+      .profile > div[style*="background: #60a5fa"],
+      .profile div[style*="background:#60a5fa"],
+      div[style*="background: #60a5fa"] .badges,
+      div[style*="background:#60a5fa"] .badges {
+        color: #1e3a8a !important;
+      }
+
+      .bubble,
+      .profile,
+      .feature-card {
+        position: relative;
+      }
+
+      .bubble:after,
+      .profile:after,
+      .feature-card:after {
+        content: '';
+        pointer-events: none;
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(135deg, rgba(255,255,255,.44), transparent 42%);
+      }
+
+      .bubble > *,
+      .profile > *,
+      .feature-card > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .bubble:hover,
+      .profile:hover,
+      .feature-card:hover {
+        box-shadow: 0 22px 58px rgba(30, 58, 138, 0.13) !important;
+      }
+
+      .feature-card {
+        isolation: isolate;
+      }
+
+      .feature-card p {
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .feature-card span:first-child {
+        font-size: 26px;
+      }
+
+      .feature-card:hover span:first-child {
+        transform: rotate(-2deg) scale(1.04);
+      }
+
+      .notice {
+        color: #1e3a8a !important;
+        background: linear-gradient(135deg, #eff6ff, #fce7f3) !important;
+        font-weight: 950 !important;
+      }
+
+      .primary,
+      .link-button,
+      .signout,
+      .sidebar nav button,
+      .feature-card {
+        letter-spacing: -0.015em;
+      }
+
+      .primary:disabled,
+      .link-button:disabled {
+        filter: grayscale(.2);
+      }
+
+      .social-action-row,
+      .post-meta {
+        background: rgba(248,251,255,.74);
+        margin-left: -4px;
+        margin-right: -4px;
+        padding-left: 8px;
+        padding-right: 8px;
+        border-radius: 18px;
+      }
+
+      .gallery-grid .bubble {
+        background: rgba(255,255,255,.96) !important;
+      }
+
+      .gallery-grid .bubble p {
+        color: #1e3a8a !important;
+        font-size: 13px;
+      }
+
+      .gallery-grid .bubble img {
+        box-shadow: 0 10px 22px rgba(30,58,138,.14);
+      }
+
+      .gallery-grid .bubble:hover img {
+        transform: scale(1.04);
+      }
+
+      /* Clean Messenger-style composition areas */
+      form[style*="flex-direction: column"],
+      form[style*="borderTop"],
+      form[style*="border-top"] {
+        background: rgba(255,255,255,.94) !important;
+        border: 1px solid rgba(191,219,254,.76) !important;
+        box-shadow: 0 18px 45px rgba(30,58,138,.08) !important;
+      }
+
+      textarea {
+        scrollbar-width: thin;
+        scrollbar-color: #bfdbfe transparent;
+      }
+
+      textarea::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      textarea::-webkit-scrollbar-thumb {
+        background: #bfdbfe;
+        border-radius: 999px;
+      }
+
+      /* More Facebook-like conversation list polish */
+      button[style*="borderBottom"] {
+        transition: background 160ms ease, transform 160ms ease;
+      }
+
+      button[style*="borderBottom"]:hover {
+        background: #f8fbff !important;
+      }
+
+      /* Friendly nursery ribbon on main room cards */
+      .room > h2:first-child {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+      }
+
+      .room > h2:first-child:after {
+        content: '🫧';
+        font-size: .55em;
+        filter: drop-shadow(0 5px 10px rgba(96,165,250,.25));
+      }
+
+      /* Polished mobile feel */
+      @media (max-width: 620px) {
+        .badges {
+          padding: 8px !important;
+        }
+
+        .badges span {
+          width: 100%;
+          justify-content: flex-start !important;
+        }
+
+        .sidebar nav button {
+          min-height: 50px;
+        }
+
+        .room h2 {
+          font-size: 34px;
+        }
+      }
+</style>
   );
 }
 
