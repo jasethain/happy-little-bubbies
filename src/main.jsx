@@ -4,6 +4,7 @@ import {
   addDoc,
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   limit,
@@ -93,7 +94,7 @@ const baseRooms = [
   { id: 'chat', label: 'Nursery Chat', icon: makeBabyIcon('🔤') },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
-  { id: 'members', label: 'Bubble Family', icon: makeBabyIcon('🫧') },
+  { id: 'members', label: 'Nursery Family', icon: makeBabyIcon('🫧') },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
   { id: 'mentors', label: 'Mentors', icon: makeBabyIcon('🧚') },
@@ -901,7 +902,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['🔤', 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
-    ['🫧', 'Bubble Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
+    ['🫧', 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     ['🧚', 'Mentors', 'Friendly helpers for confidence and community support.', 'mentors', 0],
@@ -1992,6 +1993,21 @@ function FriendsRoom({ member }) {
     }
   }
 
+  async function removeFriend(friend) {
+    const other = friend?.users?.find((item) => item.uid !== member.uid);
+    const otherName = other?.displayName || 'this friend';
+    const ok = window.confirm(`Remove ${otherName} from your friends list?`);
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, 'friends', friend.id));
+      setFriends((current) => current.filter((item) => item.id !== friend.id));
+      setStatus(`${otherName} removed from your friends list.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not remove friend.');
+    }
+  }
+
   async function openRequestorBubble(request) {
     if (!request?.fromUid) return;
 
@@ -2220,7 +2236,13 @@ function FriendsRoom({ member }) {
           {friends.length === 0 && <p>No friends yet.</p>}
           {friends.map((friend) => {
             const other = friend.users?.find((item) => item.uid !== member.uid);
-            return <PresenceCard key={friend.id} person={other} />;
+            return (
+              <PresenceCard
+                key={friend.id}
+                person={other}
+                onRemove={() => removeFriend(friend)}
+              />
+            );
           })}
         </div>
       </div>
@@ -2326,7 +2348,7 @@ function FriendsRoom({ member }) {
   );
 }
 
-function PresenceCard({ person }) {
+function PresenceCard({ person, onRemove }) {
   const [presence, setPresence] = useState(null);
 
   useEffect(() => {
@@ -2344,6 +2366,24 @@ function PresenceCard({ person }) {
       <p className="muted">
         {presence?.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
       </p>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          style={{
+            marginTop: 10,
+            border: 0,
+            borderRadius: 999,
+            padding: '8px 14px',
+            background: '#fee2e2',
+            color: '#be123c',
+            fontWeight: 900,
+            cursor: 'pointer',
+          }}
+        >
+          Remove friend
+        </button>
+      )}
     </div>
   );
 }
