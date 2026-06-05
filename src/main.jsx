@@ -16,7 +16,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -778,6 +778,133 @@ function Badge({ count }) {
   );
 }
 
+
+function SoftActionButton({ children, onClick, disabled = false, danger = false, title = '' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        border: 0,
+        borderRadius: 999,
+        padding: '9px 14px',
+        fontWeight: 900,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: danger ? '#fee2e2' : '#eef6ff',
+        color: danger ? '#be123c' : '#1e3a8a',
+        boxShadow: danger ? '0 8px 18px rgba(190,18,60,0.10)' : '0 8px 18px rgba(96,165,250,0.14)',
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SocialBabyPolish() {
+  return (
+    <style>{`
+      .app {
+        min-height: 100vh;
+      }
+
+      .panel {
+        max-width: 1280px;
+      }
+
+      .room h2 {
+        letter-spacing: -0.03em;
+      }
+
+      .profile,
+      .feature-card,
+      .bubble,
+      .auth-card {
+        border: 1px solid rgba(191, 219, 254, 0.72);
+        box-shadow: 0 18px 45px rgba(30, 58, 138, 0.08);
+      }
+
+      .bubble {
+        line-height: 1.55;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font-family: inherit;
+      }
+
+      button {
+        transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+      }
+
+      button:not(:disabled):hover {
+        transform: translateY(-1px);
+      }
+
+      .primary {
+        box-shadow: 0 12px 28px rgba(96, 165, 250, 0.22);
+      }
+
+      .link-button {
+        border: 1px solid rgba(191, 219, 254, 0.78);
+      }
+
+      input,
+      textarea,
+      select {
+        outline: none;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        box-shadow: 0 0 0 4px rgba(147, 197, 253, 0.35);
+      }
+
+      .social-action-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .post-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+        gap: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .panel header {
+          gap: 10px;
+        }
+
+        .social-action-row {
+          align-items: stretch;
+        }
+
+        .social-action-row button {
+          flex: 1 1 auto;
+        }
+      }
+    `}</style>
+  );
+}
+
 function AuthGate({ setMember }) {
   const [mode, setMode] = useState('signIn');
   const [displayName, setDisplayName] = useState('Happy Little Bubby');
@@ -1050,7 +1177,7 @@ function resizeImageFileForUpload(file, maxSize = 1400, quality = 0.82) {
   });
 }
 
-function GalleryPhotoModal({ photo, onClose }) {
+function GalleryPhotoModal({ photo, onClose, canRemove = false, onRemove }) {
   if (!photo) return null;
 
   return (
@@ -1098,9 +1225,22 @@ function GalleryPhotoModal({ photo, onClose }) {
           <strong style={{ color: '#1e3a8a' }}>
             {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 For everyone to see'}
           </strong>
-          <button type="button" className="primary" onClick={onClose} style={{ minWidth: 130 }}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {canRemove && (
+              <SoftActionButton
+                danger
+                onClick={() => {
+                  onRemove?.(photo);
+                  onClose?.();
+                }}
+              >
+                🗑️ Delete photo
+              </SoftActionButton>
+            )}
+            <button type="button" className="primary" onClick={onClose} style={{ minWidth: 130 }}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1153,16 +1293,25 @@ function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
       </p>
 
       {canRemove && (
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => onRemove?.(photo)}
-        >
-          Remove photo
-        </button>
+        <div className="social-action-row">
+          <SoftActionButton danger onClick={() => onRemove?.(photo)}>
+            🗑️ Delete photo
+          </SoftActionButton>
+        </div>
       )}
     </div>
   );
+}
+
+
+async function removeStoredFile(storagePath) {
+  if (!storagePath) return;
+
+  try {
+    await deleteObject(ref(storage, storagePath));
+  } catch (err) {
+    console.warn('Storage file could not be removed:', err);
+  }
 }
 
 async function uploadChatPhoto(file, folder, uid) {
@@ -1278,6 +1427,22 @@ function ChatRoom({ member, onPrivateMessageUser }) {
     });
   }
 
+  async function deleteChatMessage(chat) {
+    if (!chat?.id || chat.senderUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this Nursery Chat post?');
+    if (!ok) return;
+
+    try {
+      await removeStoredFile(chat.imageStoragePath);
+      await deleteDoc(doc(db, 'chatMessages', chat.id));
+      setMessages((current) => current.filter((item) => item.id !== chat.id));
+      setChatError('');
+    } catch (err) {
+      setChatError(err.message || 'Could not delete this post.');
+    }
+  }
+
   return (
     <section className="room">
       <h2>🔤 Nursery Chat</h2>
@@ -1334,6 +1499,15 @@ function ChatRoom({ member, onPrivateMessageUser }) {
                   alt="Chat photo"
                   caption="Happy Little Bubbies photo"
                 />
+              )}
+
+              {mine && (
+                <div className="post-meta">
+                  <span className="muted">{formatDate(chat.createdAt)}</span>
+                  <SoftActionButton danger onClick={() => deleteChatMessage(chat)}>
+                    🗑️ Delete post
+                  </SoftActionButton>
+                </div>
               )}
             </div>
           );
@@ -2811,6 +2985,29 @@ function FriendChatRoom({ member }) {
     }
   }
 
+  async function deleteFriendChatMessage(chat) {
+    if (!selectedFriend || !chat?.id || chat.senderUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this Friends Chat post?');
+    if (!ok) return;
+
+    try {
+      await removeStoredFile(chat.imageStoragePath);
+      await deleteDoc(doc(db, 'friendChats', selectedFriend.chatId, 'messages', chat.id));
+      setThreadMessages((current) => current.filter((item) => item.id !== chat.id));
+
+      await setDoc(doc(db, 'friendChats', selectedFriend.chatId), {
+        updatedAt: serverTimestamp(),
+        lastMessage: 'Message deleted',
+        lastMessageFrom: member.uid,
+      }, { merge: true });
+
+      setStatus('Friend chat post deleted.');
+    } catch (err) {
+      setStatus(err.message || 'Could not delete this friend chat post.');
+    }
+  }
+
   return (
     <section className="room">
       <h2>💬 Friends Chat</h2>
@@ -2923,6 +3120,15 @@ function FriendChatRoom({ member }) {
                         >
                           Join call
                         </a>
+                      </div>
+                    )}
+
+                    {mine && (
+                      <div className="post-meta">
+                        <span className="muted">{formatDate(chat.createdAt)}</span>
+                        <SoftActionButton danger onClick={() => deleteFriendChatMessage(chat)}>
+                          🗑️ Delete post
+                        </SoftActionButton>
                       </div>
                     )}
                   </div>
@@ -3654,6 +3860,29 @@ function StoryCornerRoom({ member }) {
     }));
   }
 
+  async function deleteComment(story, comment) {
+    if (comment.authorUid !== member.uid && member.role !== 'admin') {
+      setStatus('Only the comment author or a Helper Bubby admin can delete this comment.');
+      return;
+    }
+
+    const ok = window.confirm('Delete this comment?');
+    if (!ok) return;
+
+    await updateDoc(doc(db, 'stories', story.id, 'comments', comment.id), {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+      deletedBy: member.uid,
+    });
+
+    setComments((current) => ({
+      ...current,
+      [story.id]: (current[story.id] || []).filter((item) => item.id !== comment.id),
+    }));
+
+    setStatus('Comment deleted.');
+  }
+
   async function deleteStory(story) {
     if (story.authorUid !== member.uid && member.role !== 'admin') {
       setStatus('Only the author or a Helper Bubby admin can delete this story.');
@@ -3810,7 +4039,11 @@ function StoryCornerRoom({ member }) {
         )}
 
         {(request.requesterUid === member.uid || (!request.privateRequest && member.role === 'admin')) && mode !== 'library' && (
-          <button className="link-button" onClick={() => deleteStoryRequest(request)}>Delete request</button>
+          <div className="social-action-row">
+            <SoftActionButton danger onClick={() => deleteStoryRequest(request)}>
+              🗑️ Delete request
+            </SoftActionButton>
+          </div>
         )}
       </div>
     );
@@ -3886,9 +4119,9 @@ function StoryCornerRoom({ member }) {
                 </button>
 
                 {(story.authorUid === member.uid || member.role === 'admin') && (
-                  <button className="link-button" onClick={() => deleteStory(story)}>
-                    Delete
-                  </button>
+                  <SoftActionButton danger onClick={() => deleteStory(story)}>
+                    🗑️ Delete post
+                  </SoftActionButton>
                 )}
 
                 {member.role === 'admin' && (
@@ -3906,7 +4139,14 @@ function StoryCornerRoom({ member }) {
                   <div className="bubble" key={comment.id}>
                     <strong>{comment.authorName}</strong>
                     <p>{comment.text}</p>
-                    <p className="muted">{formatDate(comment.createdAt)}</p>
+                    <div className="post-meta">
+                      <p className="muted" style={{ margin: 0 }}>{formatDate(comment.createdAt)}</p>
+                      {(comment.authorUid === member.uid || member.role === 'admin') && (
+                        <SoftActionButton danger onClick={() => deleteComment(story, comment)}>
+                          🗑️ Delete comment
+                        </SoftActionButton>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -5908,9 +6148,11 @@ function ProfileRoom({ member, setMember }) {
     if (!ok) return;
 
     try {
+      await removeStoredFile(photo.storagePath);
       await deleteDoc(doc(db, 'bubblePhotos', photo.id));
       setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
-      setStatus('Gallery photo removed.');
+      if (openGalleryPhoto?.id === photo.id) setOpenGalleryPhoto(null);
+      setStatus('Gallery photo deleted.');
     } catch (err) {
       setStatus(err.message || 'Could not remove gallery photo.');
     }
@@ -6359,7 +6601,7 @@ function ProfileRoom({ member, setMember }) {
 
         {status && <p className={status.includes('updated') || status.includes('Gallery photo') || status.includes('removed') || status.includes('uploaded') ? 'success' : 'error'}>{status}</p>}
       </div>
-      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} />
+      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} canRemove onRemove={deleteGalleryPhoto} />
     </section>
   );
 }
@@ -6412,6 +6654,7 @@ function AppShell({ member, setMember }) {
       }}
     >
       <BubbleThemeStyles theme={bubbleTheme} />
+      <SocialBabyPolish />
       <aside className="sidebar">
         <Logo goHome={() => navigateTo('home')} />
         <nav>
