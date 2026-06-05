@@ -4,6 +4,8 @@ import {
   addDoc,
   collection,
   doc,
+  deleteDoc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -14,7 +16,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -59,23 +61,71 @@ function FriendsImageIcon({ size = 20 }) {
 }
 
 
+function BabyEmojiIcon({ emoji, size = 20 }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: Math.max(size, 18),
+        lineHeight: 1,
+        marginRight: 2,
+      }}
+    >
+      {emoji}
+    </span>
+  );
+}
+
+function makeBabyIcon(emoji) {
+  return function BabyNavIcon({ size = 20 }) {
+    return <BabyEmojiIcon emoji={emoji} size={size} />;
+  };
+}
+
+function MascotIcon({ src, alt, size = 34 }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="mascot-nav-icon"
+      style={{ width: size, height: size }}
+      draggable={false}
+    />
+  );
+}
+
+function makeMascotIcon(src, alt) {
+  return function MascotNavIcon({ size = 34 }) {
+    return <MascotIcon src={src} alt={alt} size={size} />;
+  };
+}
+
+
 const baseRooms = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'chat', label: 'Chat', icon: MessageCircle },
-  { id: 'inbox', label: 'Private Inbox', icon: Inbox },
-  { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
-  { id: 'friendChat', label: 'Friend Chat', icon: MessageCircle },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'mentors', label: 'Mentor Lounge', icon: Heart },
-  { id: 'stories', label: 'Story Corner', icon: Star },
-  { id: 'swap', label: 'Swap Meet', icon: Gift },
-  { id: 'safety', label: 'Report a Naughty Baby', icon: ShieldCheck },
-  { id: 'profile', label: 'My Bubble', icon: Star },
+  { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
+  { id: 'chat', label: 'Nursery Chat', icon: makeMascotIcon('/icons/image_cf92755a.png', 'Nursery Chat') },
+  { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
+  { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
+  { id: 'members', label: 'Nursery Family', icon: makeMascotIcon('/icons/image_9d6f08a6.png', 'Nursery Family') },
+  { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
+  { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
+  { id: 'mentors', label: 'Mentors', icon: makeMascotIcon('/icons/mentor-fairy.png', 'Mentors') },
+  { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
+  { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
+  { id: 'safety', label: 'Diaper Cops', icon: makeMascotIcon('/icons/diaper-cop.png', 'Diaper Cops') },
+  { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
+  { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
 function getRooms(member) {
   if (member?.role === 'admin') {
-    return [...baseRooms, { id: 'admin', label: 'Admin Console', icon: Settings }];
+    return [...baseRooms, { id: 'admin', label: 'Head Helper Bubby', icon: makeBabyIcon('👑') }];
   }
   return baseRooms;
 }
@@ -86,6 +136,7 @@ const routeMap = {
   chat: '/chat',
   inbox: '/private-inbox',
   friends: '/friends',
+  members: '/members',
   friendChat: '/friend-chat',
   notifications: '/notifications',
   mentors: '/mentor-lounge',
@@ -93,6 +144,7 @@ const routeMap = {
   swap: '/swap-meet',
   safety: '/no-naughty-business',
   profile: '/my-bubble',
+  memory: '/memory-book',
   admin: '/admin-console',
 };
 
@@ -150,7 +202,286 @@ function makeInviteCode() {
   return code;
 }
 
+const WELCOME_PHRASES = [
+  'I love when you log back in.',
+  'You’re so talented.',
+  'I hope you had some great dreams.',
+  'You’re very intelligent for a little one.',
+  'I’m so glad you’re here.',
+  'You make me so proud.',
+  'You win me over every day.',
+  'You’re so special.',
+  'We are so lucky to have you.',
+  'You’re so much fun.',
+  'You’re so beautiful little one.',
+  'You are so good at using this app.',
+  'I hope your diaper’s clean.',
+  'You’re so fantastic.',
+  'You colour my world.',
+  'You’re one of a kind.',
+  'You’re a delightful little one.',
+  'Remember little one, you can do anything you put your mind to.',
+  'You make my days sweeter.',
+  'You make me smile you little cutie patootie.',
+  'I love that you belong here.',
+  'You are worth so much to me.',
+  'You’re the best.',
+  'You rock.',
+  'You make a difference.',
+  'The world is a much nicer place with you in it.',
+  'You’re so fun to play with.',
+  'You shine every day.',
+  'You brighten my life.',
+  'You’re amazing.',
+  'You’re awesome.',
+  'You are a wonderful part of this community.',
+  'I love that you never give up.',
+  'You’re so fun-loving.',
+  'You make grey skies disappear.',
+  'You’re doing great things.',
+  'You’re unbelievable.',
+  'We love you.',
+];
+
+function pickWelcomePhrase() {
+  return WELCOME_PHRASES[Math.floor(Math.random() * WELCOME_PHRASES.length)];
+}
+
+
+function toBabyTalk(text) {
+  let output = String(text || '').trim();
+  if (!output) return '';
+
+  // Soft, playful baby-babble translator.
+  // Designed for fun community messages, not for changing saved profile/admin data.
+  output = output.toLowerCase();
+
+  const phraseRules = [
+    [/\bhello everyone[.!?]?\b/gi, 'hi evyone'],
+    [/\bhi everyone[.!?]?\b/gi, 'hi evyone'],
+    [/\bhello\b/gi, 'hi'],
+    [/\bhow are you doing\??\b/gi, 'howyou doing?'],
+    [/\bhow are you\??\b/gi, 'howyou?'],
+    [/\bhow r u\??\b/gi, 'howyou?'],
+    [/\bi am good\b/gi, 'me good'],
+    [/\bi'm good\b/gi, 'me good'],
+    [/\bi am okay\b/gi, 'me otay'],
+    [/\bi'm okay\b/gi, 'me otay'],
+    [/\bi am ok\b/gi, 'me otay'],
+    [/\bi'm ok\b/gi, 'me otay'],
+    [/\bi am tired\b/gi, 'me eepy'],
+    [/\bi'm tired\b/gi, 'me eepy'],
+    [/\bi am sleepy\b/gi, 'me eepy'],
+    [/\bi'm sleepy\b/gi, 'me eepy'],
+    [/\bi am hungry\b/gi, 'me hungy'],
+    [/\bi'm hungry\b/gi, 'me hungy'],
+    [/\bi am thirsty\b/gi, 'me need wawa'],
+    [/\bi'm thirsty\b/gi, 'me need wawa'],
+    [/\bgood morning\b/gi, 'mownin bubby'],
+    [/\bgood night\b/gi, 'nye-nye'],
+    [/\bthank you\b/gi, 'tank you'],
+    [/\bprivate message\b/gi, 'secret widdle letter'],
+    [/\bsee you later\b/gi, 'see yoo watew'],
+  ];
+
+  phraseRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  const wordRules = [
+    [/\bokay\b/gi, 'otay'],
+    [/\bok\b/gi, 'otay'],
+    [/\byes\b/gi, 'yus'],
+    [/\bno\b/gi, 'nu'],
+    [/\bplease\b/gi, 'pwease'],
+    [/\bsorry\b/gi, 'sowwy'],
+    [/\breally\b/gi, 'weally'],
+    [/\blittle\b/gi, 'widdle'],
+    [/\blove\b/gi, 'wuv'],
+    [/\bloves\b/gi, 'wuvs'],
+    [/\bfriend\b/gi, 'fwend'],
+    [/\bfriends\b/gi, 'fwends'],
+    [/\beveryone\b/gi, 'evyone'],
+    [/\beverybody\b/gi, 'evybubby'],
+    [/\bsomeone\b/gi, 'somebubby'],
+    [/\bpeople\b/gi, 'bubbies'],
+    [/\bperson\b/gi, 'bubby'],
+    [/\bbaby\b/gi, 'bubby'],
+    [/\bbabies\b/gi, 'bubbies'],
+    [/\bsleepy\b/gi, 'eepy'],
+    [/\bsleep\b/gi, 'eep'],
+    [/\btired\b/gi, 'eepy'],
+    [/\bbed\b/gi, 'nye-nye'],
+    [/\bnap\b/gi, 'nappy-nap'],
+    [/\bblanket\b/gi, 'bwankie'],
+    [/\bbottle\b/gi, 'bo-bo'],
+    [/\bdrink\b/gi, 'dwinkie'],
+    [/\bwater\b/gi, 'wawa'],
+    [/\bmilk\b/gi, 'milkie'],
+    [/\bchocolate\b/gi, 'choccy'],
+    [/\bfood\b/gi, 'nummies'],
+    [/\bbreakfast\b/gi, 'nummo'],
+    [/\blunch\b/gi, 'wunchies'],
+    [/\bdinner\b/gi, 'din-dins'],
+    [/\bsnack\b/gi, 'snackie'],
+    [/\bsnacks\b/gi, 'snackies'],
+    [/\bhungry\b/gi, 'hungy'],
+    [/\bscared\b/gi, 'skeered'],
+    [/\bcold\b/gi, 'coldies'],
+    [/\bhot\b/gi, 'hotties'],
+    [/\bmessage\b/gi, 'msgie'],
+    [/\bchat\b/gi, 'chatties'],
+    [/\badmin\b/gi, 'head helper'],
+    [/\bdiaper\b/gi, 'diapie'],
+    [/\bnappy\b/gi, 'nappie'],
+    [/\bbecause\b/gi, 'cuz'],
+    [/\bwant to\b/gi, 'wanna'],
+    [/\bgoing to\b/gi, 'gonna'],
+    [/\bgot to\b/gi, 'gotta'],
+    [/\bcome here\b/gi, 'come hewe'],
+  ];
+
+  wordRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  const grammarRules = [
+    [/\bi am\b/gi, 'me'],
+    [/\bi'm\b/gi, 'me'],
+    [/\bi have\b/gi, 'me got'],
+    [/\bi've\b/gi, 'me got'],
+    [/\bi want\b/gi, 'me want'],
+    [/\bi need\b/gi, 'me need'],
+    [/\bmy\b/gi, 'me'],
+    [/\bmine\b/gi, 'miney'],
+    [/\byou are\b/gi, 'you'],
+    [/\byou're\b/gi, 'you'],
+    [/\bare you\b/gi, 'you'],
+    [/\byour\b/gi, 'you'],
+    [/\bthe\b/gi, 'da'],
+    [/\bthat\b/gi, 'dat'],
+    [/\bthis\b/gi, 'dis'],
+    [/\bthere\b/gi, 'dere'],
+    [/\bthem\b/gi, 'dem'],
+    [/\bthey\b/gi, 'dey'],
+    [/\bthese\b/gi, 'deese'],
+    [/\bthose\b/gi, 'dose'],
+    [/\bwith\b/gi, 'wif'],
+    [/\band\b/gi, 'an'],
+    [/\bfor\b/gi, 'fo'],
+    [/\bto\b/gi, 'ta'],
+  ];
+
+  grammarRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  // Phonetic cuteness pass: th -> d/f, r/l -> w, but protect common baby words already made.
+  const protectedWords = new Set([
+    'hi', 'me', 'good', 'otay', 'yus', 'nu', 'eepy', 'nummies', 'nummo', 'bo-bo',
+    'nye-nye', 'bwankie', 'wawa', 'milkie', 'choccy', 'snackie', 'snackies',
+    'diapie', 'nappie', 'bubby', 'bubbies', 'evyone', 'howyou?', 'howyou'
+  ]);
+
+  output = output
+    .split(/(\s+|[.,!?]+)/)
+    .map((part) => {
+      if (!part || /^\s+$/.test(part) || /^[.,!?]+$/.test(part)) return part;
+      if (protectedWords.has(part)) return part;
+
+      let word = part;
+      word = word.replace(/th/gi, (match, offset, full) => {
+        const lower = full.toLowerCase();
+        if (lower.startsWith('th')) return match[0] === match[0].toUpperCase() ? 'D' : 'd';
+        return match[0] === match[0].toUpperCase() ? 'F' : 'f';
+      });
+
+      if (word.length >= 4) {
+        word = word.replace(/[rl]/gi, (match) => (match === match.toUpperCase() ? 'W' : 'w'));
+      }
+
+      // Add soft -ie endings to selected simple words.
+      word = word.replace(/\b(cute|nice|sweet|fun|sad|mad|big|small)\b/gi, '$1ie');
+
+      return word;
+    })
+    .join('');
+
+  output = output
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([?.!,])/g, '$1')
+    .replace(/([?.!]){2,}/g, '$1')
+    .replace(/\bhi evyone\. howyou\? me good\b/gi, 'hi evyone. howyou? me good')
+    .trim();
+
+  return output.charAt(0).toLowerCase() + output.slice(1);
+}
+
+function applyBabyTalk(currentText, setter) {
+  const converted = toBabyTalk(currentText);
+  if (converted) setter(converted);
+}
+
+const BUBBLE_PROFILE_KEYS = [
+  'displayName',
+  'bio',
+  'avatar',
+  'photoUrl',
+  'favouriteColour',
+  'gender',
+  'customGender',
+  'communityInterests',
+  'interestsVisibility',
+  'profileUpdatedAt',
+];
+
+function pickBubbleProfileFields(source = {}) {
+  const picked = {};
+  BUBBLE_PROFILE_KEYS.forEach((key) => {
+    if (source[key] !== undefined) picked[key] = source[key];
+  });
+  return picked;
+}
+
+async function getBubbleProfile(uid, accountData = {}) {
+  if (!uid) return pickBubbleProfileFields(accountData);
+
+  const profileDoc = await getDoc(doc(db, 'userProfiles', uid));
+
+  if (profileDoc.exists()) {
+    return {
+      ...pickBubbleProfileFields(accountData),
+      ...profileDoc.data(),
+    };
+  }
+
+  // Backward compatibility: if older scripts stored bio/profile fields in users,
+  // show them, but do not move them unless the user saves My Bubble.
+  return pickBubbleProfileFields(accountData);
+}
+
 async function getUserProfile(uid, email = '') {
+  const cleanEmail = email ? email.trim().toLowerCase() : '';
+
+  const uidDocRef = doc(db, 'users', uid);
+  const uidDoc = await getDoc(uidDocRef);
+
+  if (uidDoc.exists()) {
+    const accountData = {
+      id: uidDoc.id,
+      ...uidDoc.data(),
+      uid,
+    };
+
+    const bubbleProfile = await getBubbleProfile(uid, accountData);
+
+    return {
+      ...accountData,
+      ...bubbleProfile,
+      uid,
+    };
+  }
+
   const userQuery = query(
     collection(db, 'users'),
     where('uid', '==', uid),
@@ -160,25 +491,68 @@ async function getUserProfile(uid, email = '') {
   const userResult = await getDocs(userQuery);
 
   if (!userResult.empty) {
-    return {
+    const oldData = userResult.docs[0].data();
+    const accountData = {
       id: userResult.docs[0].id,
-      ...userResult.docs[0].data(),
+      ...oldData,
+      uid,
+    };
+
+    await setDoc(uidDocRef, {
+      uid,
+      email: cleanEmail || oldData.email || '',
+      displayName: oldData.displayName || 'Happy Little Bubby',
+      role: oldData.role || 'member',
+      status: oldData.status || (oldData.approved === true ? 'approved' : 'pendingApproval'),
+      approved: oldData.approved === true || oldData.status === 'approved',
+      badges: oldData.badges || ['🐣 Little Hatchling'],
+      migratedFromProfileDoc: userResult.docs[0].id,
+      migratedAt: serverTimestamp(),
+    }, { merge: true });
+
+    const bubbleProfile = await getBubbleProfile(uid, accountData);
+
+    return {
+      ...accountData,
+      ...bubbleProfile,
+      id: uid,
+      uid,
     };
   }
 
-  if (email) {
+  if (cleanEmail) {
     const emailQuery = query(
       collection(db, 'users'),
-      where('email', '==', email.trim().toLowerCase()),
+      where('email', '==', cleanEmail),
       limit(1)
     );
 
     const emailResult = await getDocs(emailQuery);
 
     if (!emailResult.empty) {
+      const oldData = emailResult.docs[0].data();
+      const accountProfile = {
+        id: uid,
+        uid,
+        email: cleanEmail,
+        displayName: oldData.displayName || 'Happy Little Bubby',
+        role: oldData.role || 'member',
+        status: oldData.status || (oldData.approved === true ? 'approved' : 'pendingApproval'),
+        approved: oldData.approved === true || oldData.status === 'approved',
+        badges: oldData.badges || ['🐣 Little Hatchling'],
+      };
+
+      await setDoc(uidDocRef, {
+        ...accountProfile,
+        migratedFromProfileDoc: emailResult.docs[0].id,
+        migratedAt: serverTimestamp(),
+      }, { merge: true });
+
+      const bubbleProfile = await getBubbleProfile(uid, oldData);
+
       return {
-        id: emailResult.docs[0].id,
-        ...emailResult.docs[0].data(),
+        ...accountProfile,
+        ...bubbleProfile,
       };
     }
 
@@ -189,12 +563,26 @@ async function getUserProfile(uid, email = '') {
 
       if (
         helperData.email &&
-        helperData.email.trim().toLowerCase() === email.trim().toLowerCase()
+        helperData.email.trim().toLowerCase() === cleanEmail
       ) {
-        return {
-          id: helperDoc.id,
+        const accountProfile = {
+          id: uid,
           uid,
-          ...helperData,
+          email: cleanEmail,
+          displayName: helperData.displayName || 'Happy Little Bubby',
+          role: helperData.role || 'admin',
+          status: helperData.status || 'approved',
+          approved: true,
+          badges: helperData.badges || ['🧸 Helper Bubby', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'],
+        };
+
+        await setDoc(uidDocRef, accountProfile, { merge: true });
+
+        const bubbleProfile = await getBubbleProfile(uid, helperData);
+
+        return {
+          ...accountProfile,
+          ...bubbleProfile,
         };
       }
     }
@@ -374,6 +762,25 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'mentorRequests', 'setup-mentor-request'), setupDoc, { merge: true });
 }
 
+
+async function notifyAdminNewMember(profile) {
+  try {
+    await addDoc(collection(db, 'mail'), {
+      to: ['jasethain@gmail.com'],
+      message: {
+        subject: 'New Happy Little Bubbies member joined',
+        text: `A new member joined Happy Little Bubbies.\n\nName: ${profile.displayName}\nEmail: ${profile.email}\nRole: ${profile.role}\nStatus: ${profile.status}\nUID: ${profile.uid}`,
+        html: `<h2>New Happy Little Bubbies member</h2><p><strong>Name:</strong> ${profile.displayName}</p><p><strong>Email:</strong> ${profile.email}</p><p><strong>Role:</strong> ${profile.role}</p><p><strong>Status:</strong> ${profile.status}</p><p><strong>UID:</strong> ${profile.uid}</p>`,
+      },
+      createdAt: serverTimestamp(),
+      createdBy: profile.uid,
+      type: 'new-member-notification',
+    });
+  } catch (err) {
+    console.warn('New member email notification could not be queued:', err);
+  }
+}
+
 function Badge({ count }) {
   if (!count) return null;
   return (
@@ -388,6 +795,66 @@ function Badge({ count }) {
     }}>
       {count}
     </span>
+  );
+}
+
+
+function SoftActionButton({ children, onClick, disabled = false, danger = false, title = '' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        border: 0,
+        borderRadius: 999,
+        padding: '9px 14px',
+        fontWeight: 900,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: danger ? '#fee2e2' : '#eef6ff',
+        color: danger ? '#be123c' : '#1e3a8a',
+        boxShadow: danger ? '0 8px 18px rgba(190,18,60,0.10)' : '0 8px 18px rgba(96,165,250,0.14)',
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SocialBabyPolish() {
+  return (
+    <style>{`
+      :root {
+        --social-blue:#60a5fa;
+        --social-blue-dark:#1e3a8a;
+        --social-pink:#f9a8d4;
+        --social-line:rgba(191,219,254,.78);
+        --social-card:rgba(255,255,255,.92);
+      }
+      * { box-sizing:border-box; }
+      body { background:linear-gradient(135deg,#fff1f7 0%,#eff6ff 48%,#fff7ed 100%); }
+      .app { min-height:100vh; }
+      .sidebar, .panel, .profile, .feature-card, .bubble, .auth-card, .notice {
+        border:1px solid var(--social-line) !important;
+        box-shadow:0 18px 45px rgba(30,58,138,.09) !important;
+      }
+      .sidebar { background:rgba(255,255,255,.78) !important; backdrop-filter:blur(18px); }
+      nav button { color:#475569 !important; }
+      nav button.active { background:linear-gradient(135deg,#dbeafe,#fce7f3) !important; color:#1e3a8a !important; }
+      .primary { background:linear-gradient(135deg,#60a5fa,#2563eb) !important; color:#fff !important; border:0 !important; }
+      .link-button { background:#eef6ff !important; color:#1e3a8a !important; border:1px solid rgba(191,219,254,.78) !important; border-radius:999px !important; padding:10px 14px; }
+      input, textarea, select { background:#f8fbff !important; border:1px solid rgba(191,219,254,.62) !important; color:#1e3a8a !important; }
+      .badges { display:flex !important; gap:10px !important; flex-wrap:wrap !important; padding:10px !important; border-radius:24px !important; background:linear-gradient(135deg,rgba(239,246,255,.94),rgba(252,231,243,.9)) !important; }
+      .badges span { background:rgba(255,255,255,.96) !important; color:#1e3a8a !important; border:1px solid rgba(96,165,250,.35) !important; font-weight:950 !important; text-shadow:none !important; }
+      .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; }
+      button { transition:transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
+      button:not(:disabled):hover { transform:translateY(-1px); }
+      .mascot-nav-icon { object-fit:contain; border-radius:14px; padding:2px; background:rgba(255,255,255,.92); box-shadow:0 6px 16px rgba(30,58,138,.12); transition:transform 180ms ease, filter 180ms ease, box-shadow 180ms ease; }
+      nav button:hover .mascot-nav-icon { transform:scale(1.10) rotate(-2deg); filter:drop-shadow(0 6px 14px rgba(244,114,182,.26)); }
+      nav button.active .mascot-nav-icon { transform:scale(1.12); box-shadow:0 8px 18px rgba(244,114,182,.28); }
+    `}</style>
   );
 }
 
@@ -436,6 +903,7 @@ function AuthGate({ setMember }) {
       };
 
       await setDoc(doc(db, 'users', user.uid), profile);
+      notifyAdminNewMember(profile);
       await setDoc(doc(db, 'presence', user.uid), {
         uid: user.uid,
         email: cleanEmail,
@@ -508,14 +976,18 @@ function AuthGate({ setMember }) {
 
 function HomeRoom({ setRoom, member, counts }) {
   const [setupStatus, setSetupStatus] = useState('');
+  const [welcomePhrase] = useState(() => pickWelcomePhrase());
 
   const cards = [
-    ['💬', 'Chat', 'Real-time messages are live.', 'chat', 0],
-    ['✉️', 'Private Inbox', 'Email-style member messages are live.', 'inbox', counts.inbox],
+    ['🔤', 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
+    ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
-    ['🧸', 'Friend Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
-    ['🔔', 'Notifications', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
-    ['🛠️', 'Admin Console', 'Helper Bubby control room.', 'admin', 0],
+    ['🫧', 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
+    ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
+    ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
+    ['🧚', 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
+    ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
+    ['👑', 'Head Helper Bubby', 'Helper Bubby control room.', 'admin', 0],
   ];
 
   async function runSetup() {
@@ -531,8 +1003,8 @@ function HomeRoom({ setRoom, member, counts }) {
   return (
     <section className="room">
       <div className="hero">
-        <h2>Welcome, {member.displayName}.</h2>
-        <p>Stage 11 adds Story Corner posts, comments, likes, and Helper Bubby moderation.</p>
+        <h2>{welcomePhrase}</h2>
+        <p className="muted">Welcome back, {member.displayName}.</p>
       </div>
 
       {member.role === 'admin' && (
@@ -608,6 +1080,194 @@ function ProtectedImage({ src, alt = 'Shared photo', caption = 'Protected photo'
   );
 }
 
+
+function resizeImageFileForUpload(file, maxSize = 1400, quality = 0.82) {
+  return new Promise((resolve) => {
+    if (!file || !file.type?.startsWith('image/')) {
+      resolve({ blob: file, contentType: file?.type || 'image/jpeg', extension: 'jpg' });
+      return;
+    }
+
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            resolve({
+              blob: blob || file,
+              contentType: blob ? 'image/jpeg' : file.type || 'image/jpeg',
+              extension: blob ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase(),
+            });
+          },
+          'image/jpeg',
+          quality
+        );
+      } catch {
+        URL.revokeObjectURL(objectUrl);
+        resolve({ blob: file, contentType: file.type || 'image/jpeg', extension: file.name.split('.').pop() || 'jpg' });
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({ blob: file, contentType: file.type || 'image/jpeg', extension: file.name.split('.').pop() || 'jpg' });
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+function GalleryPhotoModal({ photo, onClose, canRemove = false, onRemove }) {
+  if (!photo) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.72)',
+        zIndex: 9999,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          width: 'min(920px, 96vw)',
+          maxHeight: '92vh',
+          overflow: 'auto',
+          background: '#ffffff',
+          borderRadius: 28,
+          padding: 18,
+          boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
+          border: '3px solid #bfdbfe',
+        }}
+      >
+        <img
+          src={photo.imageUrl}
+          alt="Bubble gallery enlarged"
+          style={{
+            width: '100%',
+            maxHeight: '72vh',
+            objectFit: 'contain',
+            borderRadius: 22,
+            background: '#f5f7fb',
+            display: 'block',
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginTop: 14, flexWrap: 'wrap' }}>
+          <strong style={{ color: '#1e3a8a' }}>
+            {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 For everyone to see'}
+          </strong>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {canRemove && (
+              <SoftActionButton
+                danger
+                onClick={() => {
+                  onRemove?.(photo);
+                  onClose?.();
+                }}
+              >
+                🗑️ Delete photo
+              </SoftActionButton>
+            )}
+            <button type="button" className="primary" onClick={onClose} style={{ minWidth: 130 }}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
+  if (!photo?.imageUrl) return null;
+
+  return (
+    <div
+      className="bubble"
+      style={{
+        padding: 10,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onOpen?.(photo)}
+        title="Open photo"
+        style={{
+          width: '100%',
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          display: 'block',
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}
+      >
+        <img
+          src={photo.imageUrl}
+          alt="Bubble gallery thumbnail"
+          style={{
+            width: '100%',
+            aspectRatio: '1 / 1',
+            objectFit: 'cover',
+            borderRadius: 16,
+            display: 'block',
+            background: '#f5f7fb',
+          }}
+        />
+      </button>
+
+      <p style={{ margin: '8px 0 10px', fontWeight: 900 }}>
+        {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone can see'}
+      </p>
+
+      {canRemove && (
+        <div className="social-action-row">
+          <SoftActionButton danger onClick={() => onRemove?.(photo)}>
+            🗑️ Delete photo
+          </SoftActionButton>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+async function removeStoredFile(storagePath) {
+  if (!storagePath) return;
+
+  try {
+    await deleteObject(ref(storage, storagePath));
+  } catch (err) {
+    console.warn('Storage file could not be removed:', err);
+  }
+}
+
 async function uploadChatPhoto(file, folder, uid) {
   if (!file) return null;
 
@@ -615,14 +1275,14 @@ async function uploadChatPhoto(file, folder, uid) {
     throw new Error('Please choose an image file.');
   }
 
-  const ext = file.name.split('.').pop() || 'jpg';
-  const cleanExt = ext.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+  const resized = await resizeImageFileForUpload(file);
+  const cleanExt = String(resized.extension || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${cleanExt}`;
   const storagePath = `${folder}/${uid}/${fileName}`;
   const imageRef = ref(storage, storagePath);
 
-  await uploadBytes(imageRef, file, {
-    contentType: file.type || 'image/jpeg',
+  await uploadBytes(imageRef, resized.blob, {
+    contentType: resized.contentType || 'image/jpeg',
   });
 
   const imageUrl = await getDownloadURL(imageRef);
@@ -630,7 +1290,29 @@ async function uploadChatPhoto(file, folder, uid) {
 }
 
 
-function ChatRoom({ member }) {
+async function uploadBubbleGalleryPhoto(file, member, visibility) {
+  if (!file) throw new Error('Please choose a photo first.');
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.');
+  }
+
+  const imagePayload = await uploadChatPhoto(file, 'bubbleGallery', member.uid);
+
+  await addDoc(collection(db, 'bubblePhotos'), {
+    ownerUid: member.uid,
+    ownerName: member.displayName || 'Happy Little Bubby',
+    imageUrl: imagePayload.imageUrl || '',
+    storagePath: imagePayload.storagePath || '',
+    visibility,
+    createdAt: serverTimestamp(),
+  });
+
+  return imagePayload;
+}
+
+
+function ChatRoom({ member, onPrivateMessageUser }) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [chatError, setChatError] = useState('');
@@ -688,10 +1370,37 @@ function ChatRoom({ member }) {
     }
   }
 
+  function privateMessageFromChat(event, chat) {
+    event.preventDefault();
+
+    if (!chat?.senderUid || chat.senderUid === member.uid) return;
+
+    onPrivateMessageUser?.({
+      uid: chat.senderUid,
+      displayName: chat.senderName || 'Happy Little Bubby',
+    });
+  }
+
+  async function deleteChatMessage(chat) {
+    if (!chat?.id || chat.senderUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this Nursery Chat post?');
+    if (!ok) return;
+
+    try {
+      await removeStoredFile(chat.imageStoragePath);
+      await deleteDoc(doc(db, 'chatMessages', chat.id));
+      setMessages((current) => current.filter((item) => item.id !== chat.id));
+      setChatError('');
+    } catch (err) {
+      setChatError(err.message || 'Could not delete this post.');
+    }
+  }
+
   return (
     <section className="room">
-      <h2>Chat</h2>
-      <p className="muted">Live community chat for invited members.</p>
+      <h2>🔤 Nursery Chat</h2>
+      <p className="muted">Live community chat for invited members. Right-click a member name to send them a private message.</p>
       {chatError && <p className="error">{chatError}</p>}
 
       <div className="list" style={{ maxHeight: 460, overflowY: 'auto', marginBottom: 18 }}>
@@ -714,9 +1423,28 @@ function ChatRoom({ member }) {
                 border: mine ? '2px solid #f9a8d4' : '1px solid rgba(255,255,255,.9)',
               }}
             >
-              <strong>{chat.senderName || 'Little Bubby'}</strong>
+              <strong
+                onContextMenu={(event) => privateMessageFromChat(event, chat)}
+                title={mine ? 'This is you' : 'Right-click to private message'}
+                style={{
+                  cursor: mine ? 'default' : 'context-menu',
+                  userSelect: 'none',
+                }}
+              >
+                {chat.senderName || 'Little Bubby'}
+              </strong>
               {chat.senderRole === 'admin' && (
                 <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>🧸 Helper Bubby</span>
+              )}
+              {!mine && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onPrivateMessageUser?.({ uid: chat.senderUid, displayName: chat.senderName || 'Happy Little Bubby' })}
+                  style={{ marginLeft: 10, padding: '4px 10px', fontSize: 12 }}
+                >
+                  Private message
+                </button>
               )}
               {chat.text && <p>{chat.text}</p>}
               {chat.imageUrl && (
@@ -726,35 +1454,141 @@ function ChatRoom({ member }) {
                   caption="Happy Little Bubbies photo"
                 />
               )}
+
+              {mine && (
+                <div className="post-meta">
+                  <span className="muted">{formatDate(chat.createdAt)}</span>
+                  <SoftActionButton danger onClick={() => deleteChatMessage(chat)}>
+                    🗑️ Delete post
+                  </SoftActionButton>
+                </div>
+              )}
             </div>
           );
         })}
         <div ref={bottomRef} />
       </div>
 
-      <form className="composer" onSubmit={sendMessage}>
-        <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a cozy message" maxLength={1000} />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-          title="Add photo"
+      <form
+        onSubmit={sendMessage}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          marginTop: 20,
+          padding: 18,
+          borderRadius: 28,
+          background: '#ffffff',
+          boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
+          border: '2px solid #dbeafe',
+        }}
+      >
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a cozy message"
+          maxLength={2000}
+          style={{
+            width: '100%',
+            minHeight: 160,
+            padding: 18,
+            borderRadius: 22,
+            border: 0,
+            background: '#f5f7fb',
+            resize: 'vertical',
+            fontSize: 16,
+            lineHeight: 1.6,
+            color: '#1e3a8a',
+            boxSizing: 'border-box',
+          }}
         />
-        {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
-        <button type="submit" disabled={sending || uploadingPhoto}>
-          <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
-        </button>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <label
+            style={{
+              background: '#eef6ff',
+              color: '#1e3a8a',
+              borderRadius: 999,
+              padding: '12px 18px',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            📎 Add photo
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+              title="Add photo"
+              style={{ display: 'none' }}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => applyBabyTalk(message, setMessage)}
+            disabled={!message.trim() || sending || uploadingPhoto}
+            style={{
+              background: '#f9a8d4',
+              color: '#1e3a8a',
+              border: '2px solid #f472b6',
+              borderRadius: 999,
+              padding: '12px 18px',
+              fontWeight: 900,
+              cursor: !message.trim() || sending || uploadingPhoto ? 'not-allowed' : 'pointer',
+              opacity: !message.trim() || sending || uploadingPhoto ? 0.6 : 1,
+              boxShadow: '0 8px 18px rgba(244, 114, 182, 0.24)',
+            }}
+          >
+            🍼 Make baby babble
+          </button>
+
+          {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+
+          <button type="submit" className="primary" disabled={sending || uploadingPhoto} style={{ marginLeft: 'auto', minWidth: 180 }}>
+            <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
+          </button>
+        </div>
       </form>
     </section>
   );
 }
 
-function InboxRoom({ member }) {
-  const [toEmail, setToEmail] = useState('');
+function InboxRoom({ member, initialRecipient }) {
+  const [selectedRecipientUid, setSelectedRecipientUid] = useState(initialRecipient?.uid || '');
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [body, setBody] = useState('');
   const [messages, setMessages] = useState([]);
   const [inboxStatus, setInboxStatus] = useState('');
   const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (initialRecipient?.uid) {
+      setSelectedRecipientUid(initialRecipient.uid);
+      setInboxStatus(`Private message ready for ${initialRecipient.displayName || 'this member'}.`);
+    }
+  }, [initialRecipient?.uid]);
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedUsers = snapshot.docs
+          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+          .filter((user) => user.uid && user.uid !== member.uid)
+          .filter((user) => user.status === 'approved' || user.approved === true)
+          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+        setAvailableUsers(loadedUsers);
+      },
+      (err) => setInboxStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
 
   useEffect(() => {
     const inboxQuery = query(collection(db, 'privateMessages'), orderBy('createdAt', 'desc'));
@@ -762,16 +1596,90 @@ function InboxRoom({ member }) {
     const unsubscribe = onSnapshot(
       inboxQuery,
       (snapshot) => {
-        const allMessages = snapshot.docs.map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }));
-        const myMessages = allMessages.filter((msg) => msg.toUid === member.uid || msg.fromUid === member.uid);
-        setMessages(myMessages);
-        setInboxStatus('');
+        const allMessages = snapshot.docs
+          .map((messageDoc) => ({ id: messageDoc.id, ...messageDoc.data() }))
+          .filter((msg) => msg.toUid === member.uid || msg.fromUid === member.uid)
+          .filter((msg) => !(msg.deletedFor || []).includes(member.uid));
+
+        setMessages(allMessages);
+
+        if (!selectedRecipientUid && allMessages.length > 0) {
+          const latest = allMessages[0];
+          const otherUid = latest.fromUid === member.uid ? latest.toUid : latest.fromUid;
+          if (otherUid) setSelectedRecipientUid(otherUid);
+        }
       },
       (err) => setInboxStatus(err.message || 'Could not load private inbox.')
     );
 
     return unsubscribe;
-  }, [member.uid]);
+  }, [member.uid, selectedRecipientUid]);
+
+  useEffect(() => {
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [selectedRecipientUid, messages.length]);
+
+  function nameForUid(uid) {
+    if (uid === member.uid) return member.displayName || 'Me';
+    const knownUser = availableUsers.find((user) => user.uid === uid);
+    if (knownUser?.displayName) return knownUser.displayName;
+
+    const knownMessage = messages.find((msg) => msg.fromUid === uid || msg.toUid === uid);
+    if (!knownMessage) return 'Happy Little Bubby';
+
+    return knownMessage.fromUid === uid
+      ? knownMessage.fromName || 'Happy Little Bubby'
+      : knownMessage.toName || 'Happy Little Bubby';
+  }
+
+  function initialsForName(name) {
+    return String(name || 'HB')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'HB';
+  }
+
+  const conversations = Object.values(
+    messages.reduce((acc, msg) => {
+      const otherUid = msg.fromUid === member.uid ? msg.toUid : msg.fromUid;
+      if (!otherUid) return acc;
+
+      if (!acc[otherUid]) {
+        acc[otherUid] = {
+          uid: otherUid,
+          name: nameForUid(otherUid),
+          latest: msg,
+          unread: 0,
+        };
+      }
+
+      if (msg.toUid === member.uid && msg.read === false) {
+        acc[otherUid].unread += 1;
+      }
+
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    const aTime = a.latest?.createdAt?.toMillis?.() || 0;
+    const bTime = b.latest?.createdAt?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+
+  const selectedMessages = messages
+    .filter((msg) => {
+      if (!selectedRecipientUid) return false;
+      return (
+        (msg.fromUid === member.uid && msg.toUid === selectedRecipientUid) ||
+        (msg.fromUid === selectedRecipientUid && msg.toUid === member.uid)
+      );
+    })
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return aTime - bTime;
+    });
 
   async function markMessageRead(msg) {
     if (msg.toUid === member.uid && msg.read === false) {
@@ -782,154 +1690,456 @@ function InboxRoom({ member }) {
     }
   }
 
+  async function markThreadRead(uid) {
+    const unreadMessages = messages.filter((msg) => msg.fromUid === uid && msg.toUid === member.uid && msg.read === false);
+    await Promise.all(unreadMessages.map((msg) => markMessageRead(msg)));
+  }
+
+  function openConversation(uid) {
+    setSelectedRecipientUid(uid);
+    markThreadRead(uid);
+  }
+
+  async function deletePrivateMessage(event, msg) {
+    event.stopPropagation();
+
+    const otherName = msg.fromUid === member.uid ? msg.toName : msg.fromName;
+    const ok = window.confirm(`Delete this message from your inbox${otherName ? ` with ${otherName}` : ''}?`);
+    if (!ok) return;
+
+    try {
+      const existingDeletedFor = Array.isArray(msg.deletedFor) ? msg.deletedFor : [];
+      const nextDeletedFor = existingDeletedFor.includes(member.uid)
+        ? existingDeletedFor
+        : [...existingDeletedFor, member.uid];
+
+      await updateDoc(doc(db, 'privateMessages', msg.id), {
+        deletedFor: nextDeletedFor,
+        deletedAt: serverTimestamp(),
+      });
+
+      setInboxStatus('Message deleted from your inbox.');
+    } catch (err) {
+      setInboxStatus(err.message || 'Could not delete message.');
+    }
+  }
+
   async function sendPrivateMessage(event) {
     event.preventDefault();
-    const cleanEmail = toEmail.trim().toLowerCase();
     const cleanBody = body.trim();
-    if (!cleanEmail || !cleanBody || sending) return;
+    if (!selectedRecipientUid || !cleanBody || sending) return;
 
     setSending(true);
     setInboxStatus('');
 
     try {
-      const userQuery = query(collection(db, 'users'), where('email', '==', cleanEmail), limit(1));
-      const userResult = await getDocs(userQuery);
+      const recipient = availableUsers.find((user) => user.uid === selectedRecipientUid) || {
+        uid: selectedRecipientUid,
+        displayName: nameForUid(selectedRecipientUid),
+      };
 
-      let recipient = null;
-
-      if (!userResult.empty) {
-        recipient = userResult.docs[0].data();
-      } else {
-        const memberQuery = query(collection(db, 'members'), where('email', '==', cleanEmail), limit(1));
-        const memberResult = await getDocs(memberQuery);
-        if (!memberResult.empty) {
-          const data = memberResult.docs[0].data();
-          recipient = {
-            uid: memberResult.docs[0].id,
-            email: data.email,
-            displayName: data.displayName || cleanEmail,
-          };
-        }
-      }
-
-      if (!recipient) throw new Error('No member found with that email address.');
+      if (!recipient?.uid) throw new Error('Please choose a valid member from the list.');
 
       await addDoc(collection(db, 'privateMessages'), {
         fromUid: member.uid,
-        fromEmail: member.email,
         fromName: member.displayName,
         toUid: recipient.uid,
-        toEmail: recipient.email,
-        toName: recipient.displayName || recipient.email,
+        toName: recipient.displayName || 'Happy Little Bubby',
         body: cleanBody,
         read: false,
+        deletedFor: [],
         createdAt: serverTimestamp(),
       });
 
-      setToEmail('');
       setBody('');
+      setSelectedRecipientUid(recipient.uid);
       setInboxStatus('Private message sent.');
     } catch (err) {
       setInboxStatus(err.message || 'Private message could not be sent.');
     } finally {
       setSending(false);
-      setUploadingPhoto(false);
     }
   }
 
+  const selectedName = selectedRecipientUid ? nameForUid(selectedRecipientUid) : '';
+
   return (
     <section className="room">
-      <h2>Private Inbox</h2>
-      <p className="muted">Send private messages to other approved members by email address.</p>
+      <h2>💌 Secret Little Letters</h2>
+      <p className="muted">Private messages are shown by member name. Email addresses stay hidden.</p>
 
-      <div className="profile" style={{ marginBottom: 20 }}>
-        <h3>Send a private message</h3>
-        <form className="form compact" onSubmit={sendPrivateMessage}>
-          <input value={toEmail} onChange={(e) => setToEmail(e.target.value)} placeholder="Recipient email address" type="email" />
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your private message" />
-          <button type="submit" disabled={sending}>{sending ? 'Sending...' : 'Send private message'}</button>
-        </form>
-        {inboxStatus && <p className={inboxStatus.includes('sent') ? 'success' : 'error'}>{inboxStatus}</p>}
-      </div>
-
-      <h3>Messages</h3>
-      <div className="list">
-        {messages.length === 0 && (
-          <div className="bubble">
-            <strong>No private messages yet</strong>
-            <p>Your private inbox is soft, quiet, and waiting.</p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 340px) 1fr',
+          gap: 18,
+          alignItems: 'stretch',
+        }}
+      >
+        <div
+          className="profile"
+          style={{
+            marginBottom: 0,
+            padding: 0,
+            overflow: 'hidden',
+            minHeight: 620,
+          }}
+        >
+          <div style={{ padding: 22, borderBottom: '1px solid #e5e7eb' }}>
+            <h3 style={{ marginTop: 0 }}>Messages</h3>
+            <select
+              value={selectedRecipientUid}
+              onChange={(e) => openConversation(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              <option value="">Start a message</option>
+              {availableUsers.map((user) => (
+                <option key={user.uid} value={user.uid}>
+                  {user.displayName || 'Happy Little Bubby'}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {messages.map((msg) => {
-          const sentByMe = msg.fromUid === member.uid;
-          return (
-            <div className="bubble" key={msg.id} onClick={() => markMessageRead(msg)}>
-              <strong>{sentByMe ? `To: ${msg.toName || msg.toEmail}` : `From: ${msg.fromName || msg.fromEmail}`}</strong>
-              {!sentByMe && msg.read === false && <span style={{ marginLeft: 8, color: '#ec4899', fontWeight: 900 }}>NEW</span>}
-              <p>{msg.body}</p>
+          <div style={{ maxHeight: 540, overflowY: 'auto' }}>
+            {conversations.length === 0 && (
+              <div style={{ padding: 22 }}>
+                <p className="muted">No conversations yet.</p>
+              </div>
+            )}
 
-              {msg.callUrl && (
-                <div className="success" style={{ marginTop: 12 }}>
-                  <strong>{msg.callType === 'audio' ? '📞 Audio call' : '🎥 Video call'}</strong>
-                  <p>{msg.fromName} invited you to join a private call.</p>
-                  <a
-                    href={msg.callUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="primary"
+            {conversations.map((conversation) => {
+              const selected = conversation.uid === selectedRecipientUid;
+              const preview = conversation.latest?.body || conversation.latest?.lastMessage || 'Message';
+              return (
+                <button
+                  key={conversation.uid}
+                  type="button"
+                  onClick={() => openConversation(conversation.uid)}
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    borderBottom: '1px solid #e5e7eb',
+                    background: selected ? '#eaf2ff' : '#ffffff',
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span
                     style={{
-                      display: 'inline-block',
-                      padding: '10px 16px',
+                      width: 48,
+                      height: 48,
                       borderRadius: 999,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    Join call
-                  </a>
-                </div>
-              )}
-
-              {msg.audioUrl && (
-                <div style={{ marginTop: 12 }}>
-                  <a
-                    href={msg.audioUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      color: '#ec4899',
+                      background: selected ? '#60a5fa' : '#fce7f3',
+                      color: selected ? '#ffffff' : '#1e3a8a',
+                      display: 'grid',
+                      placeItems: 'center',
                       fontWeight: 900,
-                      textDecoration: 'none',
-                      display: 'inline-block',
-                      marginBottom: 10,
+                      flexShrink: 0,
                     }}
                   >
-                    🎧 {msg.audioFileName || 'Open recorded story'}
-                  </a>
+                    {initialsForName(conversation.name)}
+                  </span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <strong style={{ color: '#1e3a8a' }}>{conversation.name}</strong>
+                      {conversation.unread > 0 && (
+                        <span
+                          style={{
+                            background: '#f472b6',
+                            color: '#ffffff',
+                            borderRadius: 999,
+                            padding: '2px 8px',
+                            fontSize: 12,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {conversation.unread}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="muted"
+                      style={{
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginTop: 4,
+                      }}
+                    >
+                      {preview}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-                  <audio controls src={msg.audioUrl} style={{ width: '100%' }}>
-                    Your browser does not support audio playback.
-                  </audio>
-                </div>
-              )}
-
-              <p className="muted">{sentByMe ? 'Sent' : msg.read === false ? 'Unread, click to mark read' : 'Read'}</p>
+        <div
+          className="profile"
+          style={{
+            marginBottom: 0,
+            padding: 0,
+            overflow: 'hidden',
+            minHeight: 620,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              padding: 20,
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <span
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 999,
+                background: '#fce7f3',
+                color: '#1e3a8a',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 900,
+                flexShrink: 0,
+              }}
+            >
+              {selectedName ? initialsForName(selectedName) : '💌'}
+            </span>
+            <div>
+              <h3 style={{ margin: 0 }}>{selectedName || 'Choose a member'}</h3>
+              <p className="muted" style={{ margin: 0 }}>Private conversation</p>
             </div>
-          );
-        })}
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              padding: 20,
+              background: 'linear-gradient(180deg, #f8fbff, #ffffff)',
+              overflowY: 'auto',
+              maxHeight: 430,
+            }}
+          >
+            {!selectedRecipientUid && (
+              <div className="bubble">
+                <strong>Pick a member</strong>
+                <p>Choose someone from the left to start or continue a private chat.</p>
+              </div>
+            )}
+
+            {selectedRecipientUid && selectedMessages.length === 0 && (
+              <div className="bubble">
+                <strong>No messages yet</strong>
+                <p>Send the first private bubble to {selectedName}.</p>
+              </div>
+            )}
+
+            {selectedMessages.map((msg) => {
+              const sentByMe = msg.fromUid === member.uid;
+              return (
+                <div
+                  key={msg.id}
+                  onClick={() => markMessageRead(msg)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: sentByMe ? 'flex-end' : 'flex-start',
+                    marginBottom: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '72%',
+                      background: sentByMe ? '#60a5fa' : '#f5f7fb',
+                      color: sentByMe ? '#ffffff' : '#1f2937',
+                      borderRadius: sentByMe ? '22px 22px 6px 22px' : '22px 22px 22px 6px',
+                      padding: '12px 14px',
+                      boxShadow: '0 10px 24px rgba(0,0,0,0.08)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                      <strong style={{ color: sentByMe ? '#ffffff' : '#1e3a8a' }}>
+                        {sentByMe ? 'You' : msg.fromName || 'Happy Little Bubby'}
+                      </strong>
+                      {!sentByMe && msg.read === false && (
+                        <span style={{ color: '#ec4899', fontWeight: 900, fontSize: 12 }}>NEW</span>
+                      )}
+                    </div>
+
+                    {msg.body && <p style={{ margin: '8px 0 6px' }}>{msg.body}</p>}
+
+                    {msg.callUrl && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          background: sentByMe ? 'rgba(255,255,255,0.16)' : '#ffffff',
+                          borderRadius: 16,
+                          padding: 12,
+                        }}
+                      >
+                        <strong>{msg.callType === 'audio' ? '📞 Audio call' : '🎥 Video call'}</strong>
+                        <p>{msg.fromName || 'A member'} invited you to join a private call.</p>
+                        <a
+                          href={msg.callUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="primary"
+                          style={{
+                            display: 'inline-block',
+                            padding: '10px 16px',
+                            borderRadius: 999,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Join call
+                        </a>
+                      </div>
+                    )}
+
+                    {msg.audioUrl && (
+                      <div style={{ marginTop: 12 }}>
+                        <a
+                          href={msg.audioUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            color: sentByMe ? '#ffffff' : '#ec4899',
+                            fontWeight: 900,
+                            textDecoration: 'none',
+                            display: 'inline-block',
+                            marginBottom: 10,
+                          }}
+                        >
+                          🎧 {msg.audioFileName || 'Open recorded story'}
+                        </a>
+
+                        <audio controls src={msg.audioUrl} style={{ width: '100%' }}>
+                          Your browser does not support audio playback.
+                        </audio>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <span style={{ fontSize: 12, opacity: 0.82 }}>
+                        {formatDate(msg.createdAt)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => deletePrivateMessage(event, msg)}
+                        style={{
+                          border: 0,
+                          borderRadius: 999,
+                          padding: '5px 10px',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          background: sentByMe ? 'rgba(255,255,255,0.22)' : '#fee2e2',
+                          color: sentByMe ? '#ffffff' : '#be123c',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          <form
+            onSubmit={sendPrivateMessage}
+            style={{
+              padding: 18,
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-end',
+              background: '#ffffff',
+            }}
+          >
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={selectedRecipientUid ? `Message ${selectedName}` : 'Choose a member first'}
+              disabled={!selectedRecipientUid}
+              style={{
+                flex: 1,
+                minHeight: 58,
+                maxHeight: 130,
+                border: 0,
+                borderRadius: 22,
+                padding: 16,
+                background: '#f5f7fb',
+                resize: 'vertical',
+              }}
+            />
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => applyBabyTalk(body, setBody)}
+              disabled={sending || !body.trim()}
+              style={{ minWidth: 130 }}
+            >
+              🍼 Make baby babble
+            </button>
+            <button
+              type="submit"
+              className="primary"
+              disabled={sending || !selectedRecipientUid || !body.trim()}
+              style={{ minWidth: 120 }}
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </form>
+        </div>
       </div>
+
+      {inboxStatus && <p className={inboxStatus.includes('sent') || inboxStatus.includes('ready') || inboxStatus.includes('deleted') ? 'success' : 'error'}>{inboxStatus}</p>}
     </section>
   );
 }
 
 function FriendsRoom({ member }) {
-  const [friendEmail, setFriendEmail] = useState('');
+  const [selectedFriendUid, setSelectedFriendUid] = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [status, setStatus] = useState('');
   const [requests, setRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteStatus, setInviteStatus] = useState('');
   const [creatingInvite, setCreatingInvite] = useState(false);
+  const [viewRequestProfile, setViewRequestProfile] = useState(null);
+  const [loadingRequestProfile, setLoadingRequestProfile] = useState(false);
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedUsers = snapshot.docs
+          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+          .filter((user) => user.uid && user.uid !== member.uid)
+          .filter((user) => user.status === 'approved' || user.approved === true)
+          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+        setAvailableUsers(loadedUsers);
+      },
+      (err) => setStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
 
   useEffect(() => {
     const requestQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
@@ -977,7 +2187,7 @@ function FriendsRoom({ member }) {
         createdBy: member.uid,
         createdByName: member.displayName,
         createdByEmail: member.email,
-        createdByRole: member.role,
+        createdByRole: member?.role || 'member',
         source: 'member-invite',
       });
 
@@ -993,7 +2203,7 @@ function FriendsRoom({ member }) {
   async function copyInvite() {
     if (!inviteCode) return;
 
-    const inviteText = `Join Happy Little Bubbies with invite code: ${inviteCode}`;
+    const inviteText = `You are invited to join an invite only community called Happy Little Bubbies. To join click on https://happy-little-bubbies.vercel.app/ and use the code below\n\n${inviteCode}`;
 
     try {
       await navigator.clipboard.writeText(inviteText);
@@ -1007,40 +2217,46 @@ function FriendsRoom({ member }) {
     event.preventDefault();
     setStatus('');
 
-    const cleanEmail = friendEmail.trim().toLowerCase();
-    if (!cleanEmail) return;
+    if (!selectedFriendUid) {
+      setStatus('Please choose a member from the list.');
+      return;
+    }
 
     try {
-      if (cleanEmail === member.email) throw new Error('You cannot friend-request yourself.');
+      const recipient = availableUsers.find((user) => user.uid === selectedFriendUid);
+      if (!recipient) throw new Error('Please choose a valid member from the list.');
+      if (recipient.uid === member.uid) throw new Error('You cannot friend-request yourself.');
 
-      const userQuery = query(collection(db, 'users'), where('email', '==', cleanEmail), limit(1));
-      const userResult = await getDocs(userQuery);
-      if (userResult.empty) throw new Error('No member found with that email address.');
-
-      const recipient = userResult.docs[0].data();
-
-      const duplicateQuery = query(
+      const duplicateOutgoingQuery = query(
         collection(db, 'friendRequests'),
         where('fromUid', '==', member.uid),
         where('toUid', '==', recipient.uid),
         where('status', '==', 'pending'),
         limit(1)
       );
-      const duplicateResult = await getDocs(duplicateQuery);
-      if (!duplicateResult.empty) throw new Error('Friend request already sent.');
+      const duplicateOutgoingResult = await getDocs(duplicateOutgoingQuery);
+      if (!duplicateOutgoingResult.empty) throw new Error('Friend request already sent.');
+
+      const duplicateIncomingQuery = query(
+        collection(db, 'friendRequests'),
+        where('fromUid', '==', recipient.uid),
+        where('toUid', '==', member.uid),
+        where('status', '==', 'pending'),
+        limit(1)
+      );
+      const duplicateIncomingResult = await getDocs(duplicateIncomingQuery);
+      if (!duplicateIncomingResult.empty) throw new Error('This member has already sent you a friend request.');
 
       await addDoc(collection(db, 'friendRequests'), {
         fromUid: member.uid,
-        fromEmail: member.email,
         fromName: member.displayName,
         toUid: recipient.uid,
-        toEmail: recipient.email,
-        toName: recipient.displayName || recipient.email,
+        toName: recipient.displayName || 'Happy Little Bubby',
         status: 'pending',
         createdAt: serverTimestamp(),
       });
 
-      setFriendEmail('');
+      setSelectedFriendUid('');
       setStatus('Friend request sent.');
     } catch (err) {
       setStatus(err.message || 'Friend request failed.');
@@ -1049,18 +2265,30 @@ function FriendsRoom({ member }) {
 
   async function acceptFriendRequest(request) {
     try {
+      const friendshipId = chatIdFor(request.fromUid, request.toUid);
+      const fromName = request.fromName || 'Happy Little Bubby';
+      const toName = request.toName || member.displayName || 'Happy Little Bubby';
+      const friendship = {
+        userIds: [request.fromUid, request.toUid],
+        users: [
+          { uid: request.fromUid, displayName: fromName },
+          { uid: request.toUid, displayName: toName },
+        ],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'friends', friendshipId), friendship, { merge: true });
+
       await updateDoc(doc(db, 'friendRequests', request.id), {
         status: 'accepted',
         acceptedAt: serverTimestamp(),
+        friendshipId,
       });
 
-      await addDoc(collection(db, 'friends'), {
-        userIds: [request.fromUid, request.toUid],
-        users: [
-          { uid: request.fromUid, email: request.fromEmail, displayName: request.fromName },
-          { uid: request.toUid, email: request.toEmail, displayName: request.toName },
-        ],
-        createdAt: serverTimestamp(),
+      setFriends((current) => {
+        if (current.some((friend) => friend.id === friendshipId || friend.userIds?.includes(request.fromUid))) return current;
+        return [{ id: friendshipId, ...friendship }, ...current];
       });
 
       setStatus('Friend request accepted.');
@@ -1078,6 +2306,59 @@ function FriendsRoom({ member }) {
       setStatus('Friend request declined.');
     } catch (err) {
       setStatus(err.message || 'Could not decline request.');
+    }
+  }
+
+  async function removeFriend(friend) {
+    const other = friend?.users?.find((item) => item.uid !== member.uid);
+    const otherName = other?.displayName || 'this friend';
+    const ok = window.confirm(`Remove ${otherName} from your friends list?`);
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, 'friends', friend.id));
+      setFriends((current) => current.filter((item) => item.id !== friend.id));
+      setStatus(`${otherName} removed from your friends list.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not remove friend.');
+    }
+  }
+
+  async function openRequestorBubble(request) {
+    if (!request?.fromUid) return;
+
+    setStatus('');
+    setLoadingRequestProfile(true);
+
+    try {
+      let accountData = availableUsers.find((user) => user.uid === request.fromUid) || null;
+
+      if (!accountData) {
+        const accountDoc = await getDoc(doc(db, 'users', request.fromUid));
+        if (accountDoc.exists()) {
+          accountData = { id: accountDoc.id, ...accountDoc.data(), uid: request.fromUid };
+        }
+      }
+
+      if (!accountData) {
+        accountData = {
+          uid: request.fromUid,
+          displayName: request.fromName || 'Happy Little Bubby',
+        };
+      }
+
+      const bubbleProfile = await getBubbleProfile(request.fromUid, accountData);
+
+      setViewRequestProfile({
+        ...accountData,
+        ...bubbleProfile,
+        uid: request.fromUid,
+        displayName: bubbleProfile.displayName || accountData.displayName || request.fromName || 'Happy Little Bubby',
+      });
+    } catch (err) {
+      setStatus(err.message || 'Could not open this member’s Bubble.');
+    } finally {
+      setLoadingRequestProfile(false);
     }
   }
 
@@ -1142,8 +2423,7 @@ function FriendsRoom({ member }) {
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
-              Your Little Bubbies family, all in one sunny backyard.
-            </p>
+                          </p>
           </div>
         </div>
       </div>
@@ -1168,7 +2448,24 @@ function FriendsRoom({ member }) {
             >
               {inviteCode}
             </p>
-            <button className="link-button" onClick={copyInvite}>Copy invite</button>
+            <p className="muted" style={{ marginTop: 12 }}>Copy this email script:</p>
+            <textarea
+              readOnly
+              value={`You are invited to join an invite only community called Happy Little Bubbies. To join click on https://happy-little-bubbies.vercel.app/ and use the code below\n\n${inviteCode}`}
+              style={{
+                width: '100%',
+                minHeight: 130,
+                border: '0',
+                borderRadius: 18,
+                padding: 14,
+                fontSize: 15,
+                fontWeight: 700,
+                background: '#f5f7fb',
+                color: '#334155',
+                resize: 'vertical',
+              }}
+            />
+            <button className="link-button" onClick={copyInvite}>Copy email script</button>
           </div>
         )}
 
@@ -1178,8 +2475,15 @@ function FriendsRoom({ member }) {
       <div className="profile" style={{ marginBottom: 20 }}>
         <h3>Send friend request</h3>
         <form className="form compact" onSubmit={sendFriendRequest}>
-          <input value={friendEmail} onChange={(e) => setFriendEmail(e.target.value)} placeholder="Friend email address" type="email" />
-          <button type="submit">Send friend request</button>
+          <select value={selectedFriendUid} onChange={(e) => setSelectedFriendUid(e.target.value)}>
+            <option value="">Choose a member</option>
+            {availableUsers.map((user) => (
+              <option key={user.uid} value={user.uid}>
+                {user.displayName || 'Happy Little Bubby'}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={!selectedFriendUid}>Send friend request</button>
         </form>
         {status && <p className={status.includes('sent') || status.includes('accepted') || status.includes('declined') ? 'success' : 'error'}>{status}</p>}
       </div>
@@ -1191,8 +2495,27 @@ function FriendsRoom({ member }) {
           {incoming.length === 0 && <p>No incoming requests.</p>}
           {incoming.map((request) => (
             <div className="bubble" key={request.id}>
-              <strong>{request.fromName}</strong>
-              <p>{request.fromEmail}</p>
+              <button
+                type="button"
+                onClick={() => openRequestorBubble(request)}
+                disabled={loadingRequestProfile}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  color: '#ec4899',
+                  fontWeight: 900,
+                  fontSize: 18,
+                  padding: 0,
+                  cursor: loadingRequestProfile ? 'wait' : 'pointer',
+                  textDecoration: 'underline',
+                  textDecorationThickness: 2,
+                  textUnderlineOffset: 4,
+                }}
+                title="View this member’s Bubble"
+              >
+                {request.fromName || 'Happy Little Bubby'}
+              </button>
+              <p className="muted">Friend request from this member. Click their name to view their Bubble.</p>
               <button className="primary" onClick={() => acceptFriendRequest(request)}>Accept</button>
               <button className="link-button" onClick={() => declineFriendRequest(request)}>Decline</button>
             </div>
@@ -1206,7 +2529,7 @@ function FriendsRoom({ member }) {
           {outgoing.map((request) => (
             <div className="bubble" key={request.id}>
               <strong>{request.toName}</strong>
-              <p>{request.toEmail}</p>
+              <p className="muted">Waiting for this member to respond</p>
               <p className="muted">Pending</p>
             </div>
           ))}
@@ -1229,15 +2552,119 @@ function FriendsRoom({ member }) {
           {friends.length === 0 && <p>No friends yet.</p>}
           {friends.map((friend) => {
             const other = friend.users?.find((item) => item.uid !== member.uid);
-            return <PresenceCard key={friend.id} person={other} />;
+            return (
+              <PresenceCard
+                key={friend.id}
+                person={other}
+                onRemove={() => removeFriend(friend)}
+              />
+            );
           })}
         </div>
       </div>
+
+
+      {viewRequestProfile && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${viewRequestProfile.displayName || 'Member'} Bubble`}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(15, 23, 42, 0.48)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+          }}
+          onClick={() => setViewRequestProfile(null)}
+        >
+          <div
+            className="profile"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(680px, 100%)',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              border: '3px solid #bfdbfe',
+              boxShadow: '0 24px 70px rgba(15, 23, 42, 0.26)',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
+              {viewRequestProfile.photoUrl ? (
+                <img
+                  src={viewRequestProfile.photoUrl}
+                  alt=""
+                  style={{
+                    width: 92,
+                    height: 92,
+                    borderRadius: 999,
+                    objectFit: 'cover',
+                    background: '#ffffff',
+                    border: '4px solid #f9a8d4',
+                  }}
+                />
+              ) : (
+                <div className="avatar" style={{ width: 92, height: 92, fontSize: 40 }}>
+                  {viewRequestProfile.avatar || '🧸'}
+                </div>
+              )}
+
+              <div>
+                <h2 style={{ marginBottom: 6 }}>{viewRequestProfile.displayName || 'Happy Little Bubby'}</h2>
+                <p className="muted" style={{ margin: 0 }}>
+                  {viewRequestProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bubble" style={{ marginBottom: 16 }}>
+              <strong>Bio</strong>
+              {viewRequestProfile.bio ? (
+                <p style={{ whiteSpace: 'pre-wrap' }}>{viewRequestProfile.bio}</p>
+              ) : (
+                <p className="muted">This member has not added a bio yet.</p>
+              )}
+            </div>
+
+            <p><strong>Favourite colour:</strong> {viewRequestProfile.favouriteColour || 'Baby Blue'}</p>
+            <p>
+              <strong>Gender:</strong>{' '}
+              {viewRequestProfile.gender === 'Self-describe'
+                ? viewRequestProfile.customGender || 'Self-described'
+                : viewRequestProfile.gender || 'Prefer not to say'}
+            </p>
+
+            {viewRequestProfile.interestsVisibility === 'Private' ? (
+              <p><strong>Community interests:</strong> Hidden by member privacy setting</p>
+            ) : (
+              <p>
+                <strong>Community interests:</strong>{' '}
+                {(viewRequestProfile.communityInterests || []).length
+                  ? viewRequestProfile.communityInterests.join(', ')
+                  : 'None selected'}
+              </p>
+            )}
+
+            <div className="badges" style={{ marginTop: 12 }}>
+              {(viewRequestProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
+              {viewRequestProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
+              <button type="button" className="primary" onClick={() => setViewRequestProfile(null)}>
+                Close Bubble
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-function PresenceCard({ person }) {
+function PresenceCard({ person, onRemove }) {
   const [presence, setPresence] = useState(null);
 
   useEffect(() => {
@@ -1251,10 +2678,28 @@ function PresenceCard({ person }) {
   return (
     <div className="bubble">
       <strong>{person?.displayName || 'Friend'}</strong>
-      <p>{person?.email}</p>
+      <p className="muted">Happy Little Bubbies member</p>
       <p className="muted">
         {presence?.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
       </p>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          style={{
+            marginTop: 10,
+            border: 0,
+            borderRadius: 999,
+            padding: '8px 14px',
+            background: '#fee2e2',
+            color: '#be123c',
+            fontWeight: 900,
+            cursor: 'pointer',
+          }}
+        >
+          Remove friend
+        </button>
+      )}
     </div>
   );
 }
@@ -1288,8 +2733,8 @@ function FriendChatRoom({ member }) {
               friendshipId: friend.id,
               chatId: chatIdFor(member.uid, other?.uid || ''),
               uid: other?.uid,
-              email: other?.email,
-              displayName: other?.displayName || other?.email || 'Friend',
+              email: other?.email || '',
+              displayName: other?.displayName || 'Friend',
             };
           })
           .filter((friend) => friend.uid);
@@ -1494,9 +2939,32 @@ function FriendChatRoom({ member }) {
     }
   }
 
+  async function deleteFriendChatMessage(chat) {
+    if (!selectedFriend || !chat?.id || chat.senderUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this Friends Chat post?');
+    if (!ok) return;
+
+    try {
+      await removeStoredFile(chat.imageStoragePath);
+      await deleteDoc(doc(db, 'friendChats', selectedFriend.chatId, 'messages', chat.id));
+      setThreadMessages((current) => current.filter((item) => item.id !== chat.id));
+
+      await setDoc(doc(db, 'friendChats', selectedFriend.chatId), {
+        updatedAt: serverTimestamp(),
+        lastMessage: 'Message deleted',
+        lastMessageFrom: member.uid,
+      }, { merge: true });
+
+      setStatus('Friend chat post deleted.');
+    } catch (err) {
+      setStatus(err.message || 'Could not delete this friend chat post.');
+    }
+  }
+
   return (
     <section className="room">
-      <h2>Friend Chat</h2>
+      <h2>💬 Friends Chat</h2>
       <p className="muted">Real-time chat threads for accepted friends only.</p>
       {status && <p className="error">{status}</p>}
 
@@ -1506,10 +2974,18 @@ function FriendChatRoom({ member }) {
           <p>Accept a friend request before starting a friend chat.</p>
         </div>
       ) : (
-        <div className="cards">
-          <div className="feature-card">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(210px, 260px) minmax(0, 1fr)',
+            gap: 18,
+            alignItems: 'start',
+          }}
+        >
+          <div className="feature-card" style={{ padding: 20, alignSelf: 'start' }}>
             <span>🧸</span>
             <h3>Friends</h3>
+            <p className="muted" style={{ marginTop: 0 }}>Pick a friend to chat with.</p>
             {friends.map((friend) => (
               <FriendButton
                 key={friend.uid}
@@ -1520,7 +2996,7 @@ function FriendChatRoom({ member }) {
             ))}
           </div>
 
-          <div className="feature-card" style={{ gridColumn: 'span 2' }}>
+          <div className="feature-card" style={{ minWidth: 0, padding: 24 }}>
             <span>💬</span>
             <h3>{selectedFriend ? `Chat with ${selectedFriend.displayName}` : 'Pick a friend'}</h3>
             {selectedFriend && (
@@ -1551,7 +3027,7 @@ function FriendChatRoom({ member }) {
               </div>
             )}
 
-            <div className="list" style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 18 }}>
+            <div className="list" style={{ maxHeight: 520, overflowY: 'auto', marginBottom: 18, paddingRight: 8 }}>
               {threadMessages.length === 0 && (
                 <div className="bubble">
                   <strong>No messages yet</strong>
@@ -1600,31 +3076,109 @@ function FriendChatRoom({ member }) {
                         </a>
                       </div>
                     )}
+
+                    {mine && (
+                      <div className="post-meta">
+                        <span className="muted">{formatDate(chat.createdAt)}</span>
+                        <SoftActionButton danger onClick={() => deleteFriendChatMessage(chat)}>
+                          🗑️ Delete post
+                        </SoftActionButton>
+                      </div>
+                    )}
                   </div>
                 );
               })}
               <div ref={bottomRef} />
             </div>
 
-            <form className="composer" onSubmit={sendFriendChatMessage}>
-              <input
+            <form
+              onSubmit={sendFriendChatMessage}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                marginTop: 20,
+                padding: 18,
+                borderRadius: 28,
+                background: '#ffffff',
+                boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
+                border: '2px solid #dbeafe',
+              }}
+            >
+              <textarea
                 value={message}
                 onChange={(e) => handleTyping(e.target.value)}
                 placeholder={selectedFriend ? `Message ${selectedFriend.displayName}` : 'Pick a friend first'}
-                maxLength={1000}
+                maxLength={2000}
                 disabled={!selectedFriend}
+                style={{
+                  width: '100%',
+                  minHeight: 180,
+                  padding: 18,
+                  borderRadius: 22,
+                  border: 0,
+                  background: '#f5f7fb',
+                  resize: 'vertical',
+                  fontSize: 16,
+                  lineHeight: 1.6,
+                  color: '#1e3a8a',
+                  boxSizing: 'border-box',
+                }}
               />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-                disabled={!selectedFriend}
-                title="Add photo"
-              />
-              {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
-              <button type="submit" disabled={sending || uploadingPhoto || !selectedFriend}>
-                <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
-              </button>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <label
+                  style={{
+                    background: '#eef6ff',
+                    color: '#1e3a8a',
+                    borderRadius: 999,
+                    padding: '12px 18px',
+                    fontWeight: 900,
+                    cursor: selectedFriend ? 'pointer' : 'not-allowed',
+                    opacity: selectedFriend ? 1 : 0.6,
+                  }}
+                >
+                  📎 Add photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                    disabled={!selectedFriend}
+                    title="Add photo"
+                    style={{ display: 'none' }}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => applyBabyTalk(message, setMessage)}
+                  disabled={!message.trim() || sending || uploadingPhoto || !selectedFriend}
+                  style={{
+                    background: '#f9a8d4',
+                    color: '#1e3a8a',
+                    border: '2px solid #f472b6',
+                    borderRadius: 999,
+                    padding: '12px 18px',
+                    fontWeight: 900,
+                    cursor: !message.trim() || sending || uploadingPhoto || !selectedFriend ? 'not-allowed' : 'pointer',
+                    opacity: !message.trim() || sending || uploadingPhoto || !selectedFriend ? 0.6 : 1,
+                    boxShadow: '0 8px 18px rgba(244, 114, 182, 0.24)',
+                  }}
+                >
+                  🍼 Make baby babble
+                </button>
+
+                {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={sending || uploadingPhoto || !selectedFriend}
+                  style={{ marginLeft: 'auto', minWidth: 180 }}
+                >
+                  <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1657,12 +3211,34 @@ function FriendButton({ friend, selected, onClick }) {
 
   return (
     <button
-      className={selected ? 'primary' : 'link-button'}
+      type="button"
       onClick={onClick}
-      style={{ width: '100%', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      style={{
+        width: '100%',
+        marginBottom: 8,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 8,
+        border: selected ? '2px solid #60a5fa' : '1px solid #dbeafe',
+        background: selected ? '#eaf2ff' : '#ffffff',
+        color: '#1e3a8a',
+        borderRadius: 18,
+        padding: '12px 14px',
+        fontWeight: 900,
+        cursor: 'pointer',
+        textAlign: 'left',
+        boxShadow: selected ? '0 10px 22px rgba(96, 165, 250, 0.18)' : 'none',
+      }}
     >
-      <span>{presence?.online ? '🟢' : '⚪'} {friend.displayName}</span>
-      {unread && <span>NEW</span>}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {presence?.online ? '🟢' : '⚪'} {friend.displayName}
+      </span>
+      {unread && (
+        <span style={{ background: '#f472b6', color: '#ffffff', borderRadius: 999, padding: '2px 8px', fontSize: 12 }}>
+          NEW
+        </span>
+      )}
     </button>
   );
 }
@@ -1708,7 +3284,7 @@ function NotificationsRoom({ member, counts }) {
 
   return (
     <section className="room">
-      <h2>Notifications</h2>
+      <h2>🍼 Little Alerts</h2>
       <p className="muted">Your unread bubbles, friend requests, and chat nudges.</p>
 
       <div className="cards">
@@ -1731,7 +3307,7 @@ function NotificationsRoom({ member, counts }) {
           {requests.map((request) => (
             <div className="bubble" key={request.id}>
               <strong>{request.fromName}</strong>
-              <p>{request.fromEmail}</p>
+              <p className="muted">Friend request from this member</p>
             </div>
           ))}
         </div>
@@ -2238,6 +3814,29 @@ function StoryCornerRoom({ member }) {
     }));
   }
 
+  async function deleteComment(story, comment) {
+    if (comment.authorUid !== member.uid && member.role !== 'admin') {
+      setStatus('Only the comment author or a Helper Bubby admin can delete this comment.');
+      return;
+    }
+
+    const ok = window.confirm('Delete this comment?');
+    if (!ok) return;
+
+    await updateDoc(doc(db, 'stories', story.id, 'comments', comment.id), {
+      deleted: true,
+      deletedAt: serverTimestamp(),
+      deletedBy: member.uid,
+    });
+
+    setComments((current) => ({
+      ...current,
+      [story.id]: (current[story.id] || []).filter((item) => item.id !== comment.id),
+    }));
+
+    setStatus('Comment deleted.');
+  }
+
   async function deleteStory(story) {
     if (story.authorUid !== member.uid && member.role !== 'admin') {
       setStatus('Only the author or a Helper Bubby admin can delete this story.');
@@ -2394,7 +3993,11 @@ function StoryCornerRoom({ member }) {
         )}
 
         {(request.requesterUid === member.uid || (!request.privateRequest && member.role === 'admin')) && mode !== 'library' && (
-          <button className="link-button" onClick={() => deleteStoryRequest(request)}>Delete request</button>
+          <div className="social-action-row">
+            <SoftActionButton danger onClick={() => deleteStoryRequest(request)}>
+              🗑️ Delete request
+            </SoftActionButton>
+          </div>
         )}
       </div>
     );
@@ -2413,6 +4016,14 @@ function StoryCornerRoom({ member }) {
             placeholder="What would you like to share?"
             maxLength={2000}
           />
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => applyBabyTalk(storyText, setStoryText)}
+            disabled={!storyText.trim()}
+          >
+            🍼 Make baby babble
+          </button>
           <input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
@@ -2424,7 +4035,7 @@ function StoryCornerRoom({ member }) {
         {sortedStories.length === 0 && (
           <div className="bubble">
             <strong>No story posts yet</strong>
-            <p>Be the first to place a tiny lantern in Story Corner.</p>
+            <p>Be the first to place a tiny lantern in Bedtime Stories.</p>
           </div>
         )}
 
@@ -2462,9 +4073,9 @@ function StoryCornerRoom({ member }) {
                 </button>
 
                 {(story.authorUid === member.uid || member.role === 'admin') && (
-                  <button className="link-button" onClick={() => deleteStory(story)}>
-                    Delete
-                  </button>
+                  <SoftActionButton danger onClick={() => deleteStory(story)}>
+                    🗑️ Delete post
+                  </SoftActionButton>
                 )}
 
                 {member.role === 'admin' && (
@@ -2482,7 +4093,14 @@ function StoryCornerRoom({ member }) {
                   <div className="bubble" key={comment.id}>
                     <strong>{comment.authorName}</strong>
                     <p>{comment.text}</p>
-                    <p className="muted">{formatDate(comment.createdAt)}</p>
+                    <div className="post-meta">
+                      <p className="muted" style={{ margin: 0 }}>{formatDate(comment.createdAt)}</p>
+                      {(comment.authorUid === member.uid || member.role === 'admin') && (
+                        <SoftActionButton danger onClick={() => deleteComment(story, comment)}>
+                          🗑️ Delete comment
+                        </SoftActionButton>
+                      )}
+                    </div>
                   </div>
                 ))}
 
@@ -2496,6 +4114,17 @@ function StoryCornerRoom({ member }) {
                     placeholder="Write a comment"
                     maxLength={500}
                   />
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setCommentDrafts((current) => ({
+                      ...current,
+                      [story.id]: toBabyTalk(current[story.id] || ''),
+                    }))}
+                    disabled={!(commentDrafts[story.id] || '').trim()}
+                  >
+                    🍼 Make baby babble
+                  </button>
                   <button type="submit"><Send size={16} /> Comment</button>
                 </form>
               </div>
@@ -2508,7 +4137,7 @@ function StoryCornerRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Story Corner</h2>
+      <h2>📖 Bedtime Stories</h2>
       <p className="muted">Story Time is now split into My Stories, Request a Story, Read a Story for a Bubby, and Library.</p>
 
       <div
@@ -2593,6 +4222,14 @@ function StoryCornerRoom({ member }) {
                 placeholder="Enter the story you would like read"
                 maxLength={4000}
               />
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => applyBabyTalk(requestedStory, setRequestedStory)}
+                disabled={!requestedStory.trim()}
+              >
+                🍼 Make baby babble
+              </button>
 
               <div
                 style={{
@@ -2651,7 +4288,7 @@ function StoryCornerRoom({ member }) {
                         <option value="">Choose a friend</option>
                         {friends.map((friend) => (
                           <option key={friend.uid} value={friend.uid}>
-                            {friend.displayName || friend.email}
+                            {friend.displayName || 'Friend'}
                           </option>
                         ))}
                       </select>
@@ -2970,8 +4607,8 @@ function AdminConsole({ member }) {
           {presenceList.length === 0 && <p>No presence records yet.</p>}
           {presenceList.map((person) => (
             <div className="bubble" key={person.id}>
-              <strong>{person.displayName || person.email}</strong>
-              <p>{person.email}</p>
+              <strong>{person.displayName || 'Member'}</strong>
+              <p className="muted">Happy Little Bubbies member</p>
               <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
             </div>
           ))}
@@ -2984,7 +4621,7 @@ function AdminConsole({ member }) {
         {pendingUsers.map((user) => (
           <div className="bubble" key={user.id}>
             <strong>{user.displayName || user.email}</strong>
-            <p>{user.email}</p>
+            <p className="muted">Email hidden from member view</p>
             <p className="muted">Joined: {formatDate(user.createdAt)}</p>
             <button className="primary" onClick={() => approveUser(user)}>Approve</button>
             <button className="link-button" onClick={() => suspendUser(user)}>Suspend</button>
@@ -2998,7 +4635,7 @@ function AdminConsole({ member }) {
         {users.map((user) => (
           <div className="bubble" key={user.id}>
             <strong>{user.displayName || user.email}</strong>
-            <p>{user.email}</p>
+            <p className="muted">Email hidden from member view</p>
             <p className="muted">Role: {user.role || 'member'} | Status: {user.status || 'unknown'}</p>
             <button className="primary" onClick={() => approveUser(user)}>Approve</button>
             <button className="link-button" onClick={() => suspendUser(user)}>Suspend</button>
@@ -3212,7 +4849,7 @@ function MentorLoungeRoom({ member }) {
       toUid: request.requesterUid,
       toEmail: request.requesterEmail,
       toName: request.requesterName,
-      body: `${member.displayName} has accepted your Mentor Lounge request for ${request.needHelpWith}.`,
+      body: `${member.displayName} has accepted your Mentors request for ${request.needHelpWith}.`,
       read: false,
       createdAt: serverTimestamp(),
     });
@@ -3265,9 +4902,15 @@ function MentorLoungeRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Mentor Lounge</h2>
+      <div className="mascot-room-hero">
+        <img src="/icons/mentor-fairy.png" alt="Mentors" />
+        <div>
+          <h2>Mentors</h2>
+          <p className="muted">Kind people helping little bubbies feel welcome.</p>
+        </div>
+      </div>
       <p className="muted">
-        Mentor Lounge is for friendship, encouragement, confidence, and community support. Mentors are not counsellors, medical professionals, or legal advisors.
+        Mentors is for friendship, encouragement, confidence, and community support. Mentors are not counsellors, medical professionals, or legal advisors.
       </p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
@@ -3571,7 +5214,13 @@ function NaughtyBabyRoom({ member }) {
 
   return (
     <section className="room">
-      <h2>Report a Naughty Baby</h2>
+      <div className="mascot-room-hero diaper-cop-hero">
+        <img src="/icons/diaper-cop.png" alt="Diaper Cops" />
+        <div>
+          <h2>Diaper Cops</h2>
+          <p className="muted">Report a Naughty Baby.</p>
+        </div>
+      </div>
       <p className="muted">Tell a Helper Bubby admin about behaviour that needs attention. The reported baby is required so the team can action it properly.</p>
 
       <div className="profile" style={{ marginBottom: 20 }}>
@@ -3707,6 +5356,217 @@ function NaughtyBabyRoom({ member }) {
   );
 }
 
+
+function MemoryBookRoom({ member }) {
+  const [manualMemories, setManualMemories] = useState([]);
+  const [galleryPhotos, setGalleryPhotos] = useState([]);
+  const [friendships, setFriendships] = useState([]);
+  const [stories, setStories] = useState([]);
+  const [memoryTitle, setMemoryTitle] = useState('');
+  const [memoryNote, setMemoryNote] = useState('');
+  const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!member?.uid) return;
+    const unsubscribers = [];
+
+    unsubscribers.push(onSnapshot(
+      query(collection(db, 'memoryBook'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        setManualMemories(snapshot.docs
+          .map((memoryDoc) => ({ id: memoryDoc.id, ...memoryDoc.data() }))
+          .filter((memory) => memory.ownerUid === member.uid));
+      },
+      (err) => setStatus(err.message || 'Could not load Memory Book entries.')
+    ));
+
+    unsubscribers.push(onSnapshot(
+      query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        setGalleryPhotos(snapshot.docs
+          .map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }))
+          .filter((photo) => photo.ownerUid === member.uid));
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      query(collection(db, 'friends'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        setFriendships(snapshot.docs
+          .map((friendDoc) => ({ id: friendDoc.id, ...friendDoc.data() }))
+          .filter((friend) => friend.userIds?.includes(member.uid))
+          .filter((friend) => !friend.removed));
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      query(collection(db, 'stories'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        setStories(snapshot.docs
+          .map((storyDoc) => ({ id: storyDoc.id, ...storyDoc.data() }))
+          .filter((story) => !story.setupOnly)
+          .filter((story) => story.requesterUid === member.uid || story.readerUid === member.uid || story.createdByUid === member.uid));
+      },
+      () => {}
+    ));
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [member?.uid]);
+
+  function otherFriendName(friend) {
+    if (friend.userAUid === member.uid) return friend.userBName || 'A little friend';
+    if (friend.userBUid === member.uid) return friend.userAName || 'A little friend';
+    return friend.userNames?.find((name) => name !== member.displayName) || 'A little friend';
+  }
+
+  const automaticMemories = [
+    ...galleryPhotos.map((photo) => ({
+      id: `photo-${photo.id}`,
+      type: 'photo',
+      icon: '📸',
+      title: photo.visibility === 'friends' ? 'Friends-only gallery photo' : 'Gallery photo added',
+      note: photo.visibility === 'friends' ? 'You added a photo for friends eyes only.' : 'You added a photo for everyone to see.',
+      imageUrl: photo.imageUrl,
+      createdAt: photo.createdAt,
+    })),
+    ...friendships.map((friend) => ({
+      id: `friend-${friend.id}`,
+      type: 'friend',
+      icon: '🧸',
+      title: 'New friend made',
+      note: `You and ${otherFriendName(friend)} became friends.`,
+      createdAt: friend.createdAt,
+    })),
+    ...stories.map((story) => ({
+      id: `story-${story.id}`,
+      type: 'story',
+      icon: '📖',
+      title: story.title || story.storyTitle || 'Story memory',
+      note: story.audioUrl ? 'A recorded story became part of your nursery world.' : 'A story moment was created.',
+      createdAt: story.createdAt || story.completedAt,
+    })),
+  ];
+
+  const allMemories = [
+    ...manualMemories.map((memory) => ({ ...memory, icon: memory.icon || '⭐', type: 'manual' })),
+    ...automaticMemories,
+  ].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+
+  async function saveMemory(event) {
+    event.preventDefault();
+    const cleanTitle = memoryTitle.trim();
+    const cleanNote = memoryNote.trim();
+    if (!cleanTitle && !cleanNote) {
+      setStatus('Add a title or note for your special memory.');
+      return;
+    }
+
+    setSaving(true);
+    setStatus('');
+    try {
+      await addDoc(collection(db, 'memoryBook'), {
+        ownerUid: member.uid,
+        ownerName: member.displayName || 'Happy Little Bubby',
+        title: cleanTitle || 'Special Memory',
+        note: cleanNote,
+        icon: '⭐',
+        createdAt: serverTimestamp(),
+      });
+      setMemoryTitle('');
+      setMemoryNote('');
+      setStatus('Memory saved to your Memory Book.');
+    } catch (err) {
+      setStatus(err.message || 'Could not save memory.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteMemory(memory) {
+    if (memory.type !== 'manual') return;
+    const ok = window.confirm('Delete this special memory?');
+    if (!ok) return;
+    try {
+      await deleteDoc(doc(db, 'memoryBook', memory.id));
+      setStatus('Memory deleted.');
+    } catch (err) {
+      setStatus(err.message || 'Could not delete memory.');
+    }
+  }
+
+  return (
+    <section className="room memory-room">
+      <div className="memory-cover">
+        <div className="memory-book-badge">📔</div>
+        <div>
+          <h2>Memory Book</h2>
+          <p className="muted">A private scrapbook of your photos, friends, stories, and special little moments.</p>
+        </div>
+      </div>
+
+      <form className="memory-compose" onSubmit={saveMemory}>
+        <h3>⭐ Add a special memory</h3>
+        <input
+          value={memoryTitle}
+          onChange={(event) => setMemoryTitle(event.target.value)}
+          placeholder="Memory title"
+          maxLength={90}
+        />
+        <textarea
+          value={memoryNote}
+          onChange={(event) => setMemoryNote(event.target.value)}
+          placeholder="Write something you want to remember"
+          maxLength={700}
+        />
+        <button className="primary" type="submit" disabled={saving}>
+          {saving ? 'Saving...' : 'Save to Memory Book'}
+        </button>
+      </form>
+
+      {status && <p className={status.includes('saved') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
+
+      <div className="memory-stats">
+        <div><strong>{galleryPhotos.length}</strong><span>Photos</span></div>
+        <div><strong>{friendships.length}</strong><span>Friends</span></div>
+        <div><strong>{stories.length}</strong><span>Stories</span></div>
+        <div><strong>{manualMemories.length}</strong><span>Special</span></div>
+      </div>
+
+      <div className="memory-timeline">
+        {allMemories.length === 0 && (
+          <div className="memory-entry empty-memory">
+            <strong>📔 Your Memory Book is ready</strong>
+            <p>Photos, friend moments, stories, and special memories will appear here.</p>
+          </div>
+        )}
+
+        {allMemories.map((memory) => (
+          <article className="memory-entry" key={memory.id}>
+            <div className="memory-dot">{memory.icon}</div>
+            <div className="memory-card">
+              <div className="memory-card-header">
+                <strong>{memory.title || 'Special Memory'}</strong>
+                <span>{formatDate(memory.createdAt)}</span>
+              </div>
+              {memory.note && <p>{memory.note}</p>}
+              {memory.imageUrl && (
+                <img src={memory.imageUrl} alt="Memory" className="memory-photo" draggable={false} />
+              )}
+              {memory.type === 'manual' && (
+                <button type="button" className="link-button memory-delete" onClick={() => deleteMemory(memory)}>
+                  Delete memory
+                </button>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function PlaceholderRoom({ title }) {
   return (
@@ -3884,6 +5744,403 @@ function BubbleThemeStyles({ theme }) {
 }
 
 
+
+function MembersRoom({ member, onPrivateMessageUser }) {
+  const [members, setMembers] = useState([]);
+  const [selectedMemberUid, setSelectedMemberUid] = useState('');
+  const [requests, setRequests] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [status, setStatus] = useState('');
+  const [bubblePhotos, setBubblePhotos] = useState([]);
+  const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      async (snapshot) => {
+        try {
+          const accountMembers = snapshot.docs
+            .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+            .filter((user) => user.uid)
+            .filter((user) => user.status === 'approved' || user.approved === true);
+
+          const loadedMembers = await Promise.all(accountMembers.map(async (account) => {
+            const bubbleProfile = await getBubbleProfile(account.uid, account);
+            return {
+              ...account,
+              ...bubbleProfile,
+              uid: account.uid,
+              role: account.role,
+              status: account.status,
+              approved: account.approved,
+              badges: account.badges,
+            };
+          }));
+
+          loadedMembers.sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+          setMembers(loadedMembers);
+          if (!selectedMemberUid) {
+            const firstOther = loadedMembers.find((user) => user.uid !== member.uid);
+            if (firstOther?.uid) setSelectedMemberUid(firstOther.uid);
+          }
+        } catch (err) {
+          setStatus(err.message || 'Could not load member profiles.');
+        }
+      },
+      (err) => setStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid, selectedMemberUid]);
+
+
+  useEffect(() => {
+    const requestQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      requestQuery,
+      (snapshot) => {
+        const allRequests = snapshot.docs.map((requestDoc) => ({ id: requestDoc.id, ...requestDoc.data() }));
+        setRequests(allRequests.filter((request) => request.toUid === member.uid || request.fromUid === member.uid));
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
+  useEffect(() => {
+    const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      friendsQuery,
+      (snapshot) => {
+        const allFriends = snapshot.docs.map((friendDoc) => ({ id: friendDoc.id, ...friendDoc.data() }));
+        setFriends(allFriends.filter((friend) => friend.userIds?.includes(member.uid)));
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
+  useEffect(() => {
+    const photosQuery = query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      photosQuery,
+      (snapshot) => {
+        const allPhotos = snapshot.docs.map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }));
+        setBubblePhotos(allPhotos);
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, []);
+
+  function initialsForName(name) {
+    return String(name || 'HB')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'HB';
+  }
+
+  function alreadyFriends(uid) {
+    return friends.some((friend) => friend.userIds?.includes(uid));
+  }
+
+  function pendingRequest(uid) {
+    return requests.find((request) =>
+      request.status === 'pending' &&
+      ((request.fromUid === member.uid && request.toUid === uid) ||
+      (request.fromUid === uid && request.toUid === member.uid))
+    );
+  }
+
+  async function sendFriendRequestToProfile(profile) {
+    setStatus('');
+
+    if (!profile?.uid || profile.uid === member.uid) {
+      setStatus('Choose another member first.');
+      return;
+    }
+
+    if (alreadyFriends(profile.uid)) {
+      setStatus('You are already friends with this member.');
+      return;
+    }
+
+    if (pendingRequest(profile.uid)) {
+      setStatus('A friend request is already pending with this member.');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'friendRequests'), {
+        fromUid: member.uid,
+        fromName: member.displayName,
+        toUid: profile.uid,
+        toName: profile.displayName || 'Happy Little Bubby',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+
+      setStatus(`Friend request sent to ${profile.displayName || 'this member'}.`);
+    } catch (err) {
+      setStatus(err.message || 'Could not send friend request.');
+    }
+  }
+
+  const selectedProfile = members.find((item) => item.uid === selectedMemberUid);
+  const publicMembers = members.filter((item) => item.uid !== member.uid);
+  const selectedIsFriend = selectedProfile ? alreadyFriends(selectedProfile.uid) : false;
+  const selectedPendingRequest = selectedProfile ? pendingRequest(selectedProfile.uid) : null;
+  const showInterests =
+    selectedProfile?.interestsVisibility === 'Public' ||
+    (selectedProfile?.interestsVisibility === 'Friends Only' && selectedIsFriend);
+
+  const selectedBubblePhotos = selectedProfile
+    ? bubblePhotos
+        .filter((photo) => photo.ownerUid === selectedProfile.uid)
+        .filter((photo) =>
+          photo.visibility === 'public' ||
+          selectedProfile.uid === member.uid ||
+          selectedIsFriend
+        )
+    : [];
+
+  return (
+    <section className="room">
+      <h2>Members</h2>
+      <p className="muted">Browse member bubbles by display name. Email addresses and user IDs stay private.</p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 340px) 1fr',
+          gap: 18,
+          alignItems: 'start',
+        }}
+      >
+        <div className="profile" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: 22, borderBottom: '1px solid #e5e7eb' }}>
+            <h3 style={{ marginTop: 0 }}>Member List</h3>
+            <p className="muted" style={{ marginBottom: 0 }}>Click a name to view their Bubble.</p>
+          </div>
+
+          <div style={{ maxHeight: 620, overflowY: 'auto' }}>
+            {publicMembers.length === 0 && (
+              <div style={{ padding: 22 }}>
+                <p className="muted">No other members yet.</p>
+              </div>
+            )}
+
+            {publicMembers.map((profile) => {
+              const selected = profile.uid === selectedMemberUid;
+              return (
+                <button
+                  key={profile.uid}
+                  type="button"
+                  onClick={() => setSelectedMemberUid(profile.uid)}
+                  style={{
+                    width: '100%',
+                    border: 0,
+                    borderBottom: '1px solid #e5e7eb',
+                    background: selected ? '#eaf2ff' : '#ffffff',
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {profile.photoUrl ? (
+                    <img
+                      src={profile.photoUrl}
+                      alt=""
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        objectFit: 'cover',
+                        background: '#ffffff',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 999,
+                        background: selected ? '#60a5fa' : '#fce7f3',
+                        color: selected ? '#ffffff' : '#1e3a8a',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontWeight: 900,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {profile.avatar || initialsForName(profile.displayName)}
+                    </span>
+                  )}
+
+                  <span>
+                    <strong style={{ color: '#1e3a8a' }}>{profile.displayName || 'Happy Little Bubby'}</strong>
+                    <span className="muted" style={{ display: 'block', marginTop: 4 }}>
+                      {profile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="profile">
+          {!selectedProfile && (
+            <div className="bubble">
+              <strong>Pick a member</strong>
+              <p>Choose someone from the list to view their public Bubble.</p>
+            </div>
+          )}
+
+          {selectedProfile && (
+            <>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 18 }}>
+                {selectedProfile.photoUrl ? (
+                  <img
+                    src={selectedProfile.photoUrl}
+                    alt=""
+                    style={{
+                      width: 96,
+                      height: 96,
+                      borderRadius: 999,
+                      objectFit: 'cover',
+                      background: '#ffffff',
+                      border: '4px solid #bfdbfe',
+                    }}
+                  />
+                ) : (
+                  <div className="avatar" style={{ width: 96, height: 96, fontSize: 42 }}>
+                    {selectedProfile.avatar || '🧸'}
+                  </div>
+                )}
+
+                <div>
+                  <h3 style={{ marginBottom: 6 }}>{selectedProfile.displayName || 'Happy Little Bubby'}</h3>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {selectedProfile.role === 'admin' ? 'Helper Bubby' : 'Member'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedProfile.bio ? (
+                <div className="bubble" style={{ marginBottom: 16 }}>
+                  <strong>Bio</strong>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{selectedProfile.bio}</p>
+                </div>
+              ) : (
+                <div className="bubble" style={{ marginBottom: 16 }}>
+                  <strong>Bio</strong>
+                  <p className="muted">This member has not added a bio yet.</p>
+                </div>
+              )}
+
+              <p><strong>Favourite colour:</strong> {selectedProfile.favouriteColour || 'Baby Blue'}</p>
+              <p><strong>Gender:</strong> {selectedProfile.gender === 'Self-describe' ? selectedProfile.customGender || 'Self-described' : selectedProfile.gender || 'Prefer not to say'}</p>
+              <p><strong>Interests visibility:</strong> {selectedProfile.interestsVisibility || 'Public'}</p>
+
+              {showInterests ? (
+                <p><strong>Community interests:</strong> {(selectedProfile.communityInterests || []).length ? selectedProfile.communityInterests.join(', ') : 'None selected'}</p>
+              ) : (
+                <p><strong>Community interests:</strong> Hidden by member privacy setting</p>
+              )}
+
+              <div className="bubble" style={{ marginTop: 16, marginBottom: 16 }}>
+                <strong>📷 Bubble Gallery</strong>
+                {selectedBubblePhotos.length === 0 ? (
+                  <p className="muted">No visible gallery photos yet.</p>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 140px))',
+                      gap: 12,
+                      marginTop: 12,
+                    }}
+                  >
+                    {selectedBubblePhotos.map((photo) => (
+                      <GalleryThumbnail
+                        key={photo.id}
+                        photo={photo}
+                        onOpen={setOpenGalleryPhoto}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="badges" style={{ marginTop: 12 }}>
+                {(selectedProfile.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
+                {selectedProfile.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 20,
+                  paddingTop: 18,
+                  borderTop: '1px solid #e5e7eb',
+                  display: 'flex',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {selectedIsFriend ? (
+                  <button type="button" className="primary" disabled>
+                    Already friends
+                  </button>
+                ) : selectedPendingRequest ? (
+                  <button type="button" className="primary" disabled>
+                    Friend request pending
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => sendFriendRequestToProfile(selectedProfile)}
+                  >
+                    Send friend request
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => onPrivateMessageUser?.({ uid: selectedProfile.uid, displayName: selectedProfile.displayName || 'Happy Little Bubby' })}
+                >
+                  Private message
+                </button>
+              </div>
+            </>
+          )}
+
+          {status && <p className={status.includes('sent') || status.includes('already') || status.includes('pending') ? 'success' : 'error'}>{status}</p>}
+        </div>
+      </div>
+      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} />
+    </section>
+  );
+}
+
+
 function ProfileRoom({ member, setMember }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
@@ -3897,6 +6154,7 @@ function ProfileRoom({ member, setMember }) {
     'Agender',
     'Bigender',
     'Genderfluid',
+    'Diaper Sexual',
     'Transgender female',
     'Transgender male',
     'Transgender',
@@ -3937,6 +6195,11 @@ function ProfileRoom({ member, setMember }) {
   const [saving, setSaving] = useState(false);
   const [friendCount, setFriendCount] = useState(0);
   const [mentorProfile, setMentorProfile] = useState(null);
+  const [galleryPhotos, setGalleryPhotos] = useState([]);
+  const [galleryFile, setGalleryFile] = useState(null);
+  const [galleryVisibility, setGalleryVisibility] = useState('public');
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
@@ -3973,6 +6236,24 @@ function ProfileRoom({ member, setMember }) {
         }
 
         setMentorProfile({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
+  useEffect(() => {
+    const photosQuery = query(collection(db, 'bubblePhotos'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      photosQuery,
+      (snapshot) => {
+        const ownPhotos = snapshot.docs
+          .map((photoDoc) => ({ id: photoDoc.id, ...photoDoc.data() }))
+          .filter((photo) => photo.ownerUid === member.uid);
+
+        setGalleryPhotos(ownPhotos);
       },
       () => {}
     );
@@ -4018,6 +6299,42 @@ function ProfileRoom({ member, setMember }) {
     }
   }
 
+  async function uploadGalleryPhoto() {
+    if (!galleryFile) {
+      setStatus('Please choose a gallery photo first.');
+      return;
+    }
+
+    setGalleryUploading(true);
+    setStatus('');
+
+    try {
+      await uploadBubbleGalleryPhoto(galleryFile, { ...member, displayName }, galleryVisibility);
+      setGalleryFile(null);
+      setGalleryVisibility('public');
+      setStatus('Gallery photo uploaded.');
+    } catch (err) {
+      setStatus(err.message || 'Could not upload gallery photo.');
+    } finally {
+      setGalleryUploading(false);
+    }
+  }
+
+  async function deleteGalleryPhoto(photo) {
+    const ok = window.confirm('Remove this photo from your Bubble Gallery?');
+    if (!ok) return;
+
+    try {
+      await removeStoredFile(photo.storagePath);
+      await deleteDoc(doc(db, 'bubblePhotos', photo.id));
+      setGalleryPhotos((current) => current.filter((item) => item.id !== photo.id));
+      if (openGalleryPhoto?.id === photo.id) setOpenGalleryPhoto(null);
+      setStatus('Gallery photo deleted.');
+    } catch (err) {
+      setStatus(err.message || 'Could not remove gallery photo.');
+    }
+  }
+
   async function saveProfile(event) {
     event.preventDefault();
     setStatus('');
@@ -4033,7 +6350,19 @@ function ProfileRoom({ member, setMember }) {
     setSaving(true);
 
     try {
-      const updatedProfile = {
+      const accountUpdate = {
+        uid: member.uid,
+        email: member.email || auth.currentUser?.email || '',
+        displayName: cleanName,
+        role: member.role || 'member',
+        status: member.status || 'approved',
+        approved: member.approved === true || member.status === 'approved',
+        badges: member.badges || ['🐣 Little Hatchling'],
+        updatedAt: serverTimestamp(),
+      };
+
+      const bubbleProfileUpdate = {
+        uid: member.uid,
         displayName: cleanName,
         bio: cleanBio,
         avatar,
@@ -4046,30 +6375,32 @@ function ProfileRoom({ member, setMember }) {
         profileUpdatedAt: serverTimestamp(),
       };
 
-      await updateDoc(doc(db, 'users', member.uid), updatedProfile);
+      // Account/admin data stays in users/{uid}. This deliberately does not save
+      // bio, gender, interests, or profile photo into the account document.
+      await setDoc(doc(db, 'users', member.uid), accountUpdate, { merge: true });
+
+      // Editable Bubble data lives separately in userProfiles/{uid}, so future
+      // script updates cannot accidentally wipe member bios.
+      await setDoc(doc(db, 'userProfiles', member.uid), bubbleProfileUpdate, { merge: true });
 
       await setDoc(doc(db, 'presence', member.uid), {
         uid: member.uid,
-        email: member.email,
         displayName: cleanName,
         avatar,
+        photoUrl,
         lastSeen: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      setMember({
+      const localProfile = {
         ...member,
-        ...updatedProfile,
+        ...accountUpdate,
+        ...bubbleProfileUpdate,
+        id: member.uid,
         displayName: cleanName,
-        bio: cleanBio,
-        avatar,
-        photoUrl,
-        favouriteColour,
-        gender,
-        customGender: gender === 'Self-describe' ? customGender.trim() : '',
-        communityInterests,
-        interestsVisibility,
-      });
+      };
+
+      setMember(localProfile);
 
       setStatus('Profile updated.');
     } catch (err) {
@@ -4083,7 +6414,7 @@ function ProfileRoom({ member, setMember }) {
 
   return (
     <section className="room">
-      <h2>My Bubble</h2>
+      <h2>🫧 My Bubble</h2>
 
       <div
         className="profile"
@@ -4110,7 +6441,6 @@ function ProfileRoom({ member, setMember }) {
           <div className="avatar">{avatar}</div>
         )}
         <h3>{member.displayName}</h3>
-        <p>{member.email}</p>
         {member.bio && <p style={{ whiteSpace: 'pre-wrap' }}>{member.bio}</p>}
 
         <p><strong>Role:</strong> {member.role === 'admin' ? 'Helper Bubby' : 'Member'}</p>
@@ -4121,13 +6451,107 @@ function ProfileRoom({ member, setMember }) {
         <p><strong>Interests visibility:</strong> {member.interestsVisibility || 'Public'}</p>
         <p><strong>Friends:</strong> {friendCount}</p>
         <p><strong>Mentor status:</strong> {mentorProfile ? mentorProfile.status : 'Not a mentor yet'}</p>
-        <p><strong>User ID:</strong> {member.uid}</p>
 
         <div className="badges">
           {(member.badges || ['🐣 Little Hatchling']).map((badge) => <span key={badge}>{badge}</span>)}
           {mentorProfile?.status === 'Approved' && <span>💙 Approved Mentor</span>}
           {member.role === 'admin' && <span>🛠️ Helper Bubby Admin</span>}
         </div>
+      </div>
+
+      <div className="profile" style={{ marginTop: 20 }}>
+        <h3>📷 Bubble Gallery</h3>
+        <p className="muted">Add photos to your Bubble and choose who can see each one.</p>
+
+        <div
+          style={{
+            background: '#f5f7fb',
+            borderRadius: 22,
+            padding: 18,
+            marginBottom: 18,
+          }}
+        >
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setGalleryFile(e.target.files?.[0] || null)}
+          />
+
+          <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                fontWeight: 900,
+                color: '#1e3a8a',
+              }}
+            >
+              <input
+                type="radio"
+                name="galleryVisibility"
+                value="public"
+                checked={galleryVisibility === 'public'}
+                onChange={(e) => setGalleryVisibility(e.target.value)}
+              />
+              🌍 For everyone to see
+            </label>
+
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                fontWeight: 900,
+                color: '#1e3a8a',
+              }}
+            >
+              <input
+                type="radio"
+                name="galleryVisibility"
+                value="friends"
+                checked={galleryVisibility === 'friends'}
+                onChange={(e) => setGalleryVisibility(e.target.value)}
+              />
+              🧸 For friends eyes only
+            </label>
+          </div>
+
+          <button
+            type="button"
+            className="primary"
+            onClick={uploadGalleryPhoto}
+            disabled={galleryUploading || !galleryFile}
+            style={{ marginTop: 14 }}
+          >
+            {galleryUploading ? 'Uploading...' : 'Upload gallery photo'}
+          </button>
+        </div>
+
+        {galleryPhotos.length === 0 ? (
+          <div className="bubble">
+            <strong>No gallery photos yet</strong>
+            <p>Add your first Bubble Gallery photo above.</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 150px))',
+              gap: 14,
+            }}
+          >
+            {galleryPhotos.map((photo) => (
+              <GalleryThumbnail
+                key={photo.id}
+                photo={photo}
+                onOpen={setOpenGalleryPhoto}
+                canRemove
+                onRemove={deleteGalleryPhoto}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="profile" style={{ marginTop: 20 }}>
@@ -4293,16 +6717,28 @@ function ProfileRoom({ member, setMember }) {
                 gap: 10,
               }}
             >
-              {interestOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={communityInterests.includes(option) ? 'primary' : 'link-button'}
-                  onClick={() => toggleCommunityInterest(option)}
-                >
-                  {communityInterests.includes(option) ? '✓ ' : ''}{option}
-                </button>
-              ))}
+              {interestOptions.map((option) => {
+                const selected = communityInterests.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => toggleCommunityInterest(option)}
+                    style={{
+                      border: selected ? `2px solid ${previewTheme.accent}` : '2px solid #dbeafe',
+                      borderRadius: 999,
+                      padding: '12px 14px',
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      background: selected ? previewTheme.accent : '#ffffff',
+                      color: selected ? previewTheme.buttonText : '#1e3a8a',
+                      boxShadow: selected ? previewTheme.glow : '0 6px 14px rgba(30, 58, 138, 0.08)',
+                    }}
+                  >
+                    {selected ? '✓ ' : ''}{option}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -4340,20 +6776,63 @@ function ProfileRoom({ member, setMember }) {
           </button>
         </form>
 
-        {status && <p className={status.includes('updated') ? 'success' : 'error'}>{status}</p>}
+        {status && <p className={status.includes('updated') || status.includes('Gallery photo') || status.includes('removed') || status.includes('uploaded') ? 'success' : 'error'}>{status}</p>}
       </div>
+      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} canRemove onRemove={deleteGalleryPhoto} />
     </section>
   );
 }
 
+
+function NurseryWorldUpgradeStyles() {
+  return (
+    <style>{`
+      .mascot-nav-icon { display:inline-block; object-fit:contain; border-radius:9px; flex-shrink:0; filter:drop-shadow(0 4px 8px rgba(30,58,138,.16)); }
+      .compact-page-header { min-height:74px !important; padding:10px 18px !important; align-items:center !important; gap:12px !important; position:sticky !important; top:12px !important; z-index:50 !important; background:rgba(255,255,255,.90) !important; backdrop-filter:blur(18px) !important; border-radius:24px !important; box-shadow:0 12px 32px rgba(30,58,138,.10) !important; margin-bottom:16px !important; }
+      .mini-brand { width:52px; height:52px; padding:0; border:0; border-radius:18px; background:linear-gradient(135deg,#fff,#eff6ff); display:grid; place-items:center; box-shadow:0 8px 18px rgba(244,114,182,.16); flex-shrink:0; }
+      .mini-brand img { width:44px; height:44px; object-fit:contain; border-radius:14px; }
+      .topbar-title { display:flex; align-items:center; gap:12px; min-width:0; }
+      .topbar-icon { width:46px; height:46px; border-radius:18px; background:linear-gradient(135deg,#dbeafe,#fce7f3); display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(96,165,250,.22); flex-shrink:0; }
+      .topbar-icon .mascot-nav-icon { width:36px !important; height:36px !important; }
+      .compact-page-header small { display:block; font-size:10px !important; line-height:1 !important; margin-bottom:4px; color:#ec4899 !important; letter-spacing:.18em !important; }
+      .compact-page-header h2 { font-size:clamp(22px,3vw,32px) !important; line-height:1.05 !important; margin:0 !important; color:#1e3a8a !important; }
+      .panel header .logo-button, .panel > header .logo-button { display:none !important; }
+      .mascot-room-hero { display:flex; align-items:center; gap:18px; background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(239,246,255,.92),rgba(252,231,243,.78)); border:1px solid rgba(191,219,254,.78); border-radius:28px; padding:18px; margin-bottom:16px; box-shadow:0 18px 42px rgba(30,58,138,.10); }
+      .mascot-room-hero img { width:118px; height:118px; object-fit:contain; border-radius:24px; background:rgba(255,255,255,.74); box-shadow:0 10px 25px rgba(30,58,138,.12); flex-shrink:0; }
+      .mascot-room-hero h2 { margin:0 0 6px !important; }
+      .diaper-cop-hero img { width:128px; height:128px; }
+      .memory-cover { display:flex; align-items:center; gap:18px; padding:24px; border-radius:32px; margin-bottom:18px; background:radial-gradient(circle at 10% 10%,rgba(249,168,212,.38),transparent 28%),radial-gradient(circle at 90% 0%,rgba(96,165,250,.30),transparent 32%),linear-gradient(135deg,rgba(255,255,255,.96),rgba(255,247,237,.92)); border:1px solid rgba(191,219,254,.8); box-shadow:0 20px 50px rgba(30,58,138,.10); }
+      .memory-book-badge { width:82px; height:82px; border-radius:28px; display:grid; place-items:center; font-size:42px; background:linear-gradient(135deg,#fce7f3,#dbeafe); box-shadow:inset 0 0 0 1px rgba(255,255,255,.72),0 12px 26px rgba(244,114,182,.20); flex-shrink:0; }
+      .memory-compose { display:grid; gap:12px; padding:20px; border-radius:28px; margin-bottom:18px; background:rgba(255,255,255,.88); border:1px solid rgba(191,219,254,.76); box-shadow:0 16px 36px rgba(30,58,138,.08); }
+      .memory-compose h3 { margin:0; color:#1e3a8a; }
+      .memory-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
+      .memory-stats div { padding:16px; border-radius:24px; background:rgba(255,255,255,.90); border:1px solid rgba(191,219,254,.68); text-align:center; box-shadow:0 12px 28px rgba(30,58,138,.06); }
+      .memory-stats strong { display:block; font-size:28px; color:#1e3a8a; }
+      .memory-stats span { color:#64748b; font-weight:850; }
+      .memory-timeline { position:relative; display:grid; gap:16px; padding-left:16px; }
+      .memory-timeline:before { content:''; position:absolute; left:30px; top:8px; bottom:8px; width:4px; border-radius:99px; background:linear-gradient(#f9a8d4,#bfdbfe); }
+      .memory-entry { display:grid; grid-template-columns:44px minmax(0,1fr); gap:14px; position:relative; }
+      .memory-dot { width:44px; height:44px; border-radius:999px; background:#fff; border:3px solid #bfdbfe; display:grid; place-items:center; font-size:22px; box-shadow:0 8px 18px rgba(30,58,138,.10); z-index:1; }
+      .memory-card { padding:18px; border-radius:26px; background:rgba(255,255,255,.92); border:1px solid rgba(191,219,254,.72); box-shadow:0 16px 34px rgba(30,58,138,.08); }
+      .memory-card-header { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+      .memory-card-header strong { color:#1e3a8a; font-size:18px; }
+      .memory-card-header span { color:#64748b; font-size:12px; font-weight:800; }
+      .memory-photo { width:min(360px,100%); max-height:280px; object-fit:cover; border-radius:22px; display:block; margin-top:12px; box-shadow:0 14px 30px rgba(30,58,138,.12); }
+      .memory-delete { margin:12px 0 0 !important; display:inline-flex !important; }
+      @media (max-width:720px) { .compact-page-header { top:0 !important; border-radius:0 0 24px 24px !important; } .mini-brand { width:44px; height:44px; } .mini-brand img { width:38px; height:38px; } .topbar-icon { width:40px; height:40px; } .compact-page-header h2 { font-size:22px !important; } .mascot-room-hero,.memory-cover { align-items:flex-start; flex-direction:column; } .mascot-room-hero img { width:96px; height:96px; } .memory-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .memory-timeline { padding-left:0; } .memory-timeline:before { display:none; } .memory-entry { grid-template-columns:1fr; } }
+    `}</style>
+  );
+}
 
 function AppShell({ member, setMember }) {
   usePresence(member);
   const counts = useNotificationCounts(member);
   const rooms = getRooms(member);
   const [room, setRoom] = useState(() => roomFromPath(window.location.pathname));
+  const [privateMessageRecipient, setPrivateMessageRecipient] = useState(null);
   const active = rooms.find((item) => item.id === room) || rooms[0];
   const bubbleTheme = getBubbleTheme(member.favouriteColour);
+  const ActiveIcon = active.icon;
 
   useEffect(() => {
     const handlePopState = () => {
@@ -4377,6 +6856,12 @@ function AppShell({ member, setMember }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function openPrivateMessage(user) {
+    if (!user?.uid || user.uid === member.uid) return;
+    setPrivateMessageRecipient(user);
+    navigateTo('inbox');
+  }
+
   return (
     <main
       className="app"
@@ -4387,6 +6872,8 @@ function AppShell({ member, setMember }) {
       }}
     >
       <BubbleThemeStyles theme={bubbleTheme} />
+      <SocialBabyPolish />
+      <NurseryWorldUpgradeStyles />
       <aside className="sidebar">
         <Logo goHome={() => navigateTo('home')} />
         <nav>
@@ -4415,26 +6902,33 @@ function AppShell({ member, setMember }) {
       </aside>
 
       <section className="panel" key={room}>
-        <header>
-          <Logo goHome={() => navigateTo('home')} />
-          <div>
-            <small>Stage 26 member invites build</small>
-            <h2>{active.label}</h2>
+        <header className="compact-page-header">
+          <button className="mini-brand" onClick={() => navigateTo('home')} title="Return home">
+            <img src="/logo.png" alt="Happy Little Bubbies logo" />
+          </button>
+          <div className="topbar-title">
+            <span className="topbar-icon"><ActiveIcon size={30} /></span>
+            <div>
+              <small>Happy Little Bubbies</small>
+              <h2>{active.label}</h2>
+            </div>
           </div>
         </header>
 
         {room === 'home' && <HomeRoom setRoom={navigateTo} member={member} counts={counts} />}
-        {room === 'chat' && <ChatRoom member={member} />}
-        {room === 'inbox' && <InboxRoom member={member} />}
+        {room === 'chat' && <ChatRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
+        {room === 'inbox' && <InboxRoom member={member} initialRecipient={privateMessageRecipient} />}
         {room === 'friends' && <FriendsRoom member={member} />}
+        {room === 'members' && <MembersRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
         {room === 'friendChat' && <FriendChatRoom member={member} />}
         {room === 'notifications' && <NotificationsRoom member={member} counts={counts} />}
         {room === 'stories' && <StoryCornerRoom member={member} />}
         {room === 'admin' && <AdminConsole member={member} />}
         {room === 'profile' && <ProfileRoom member={member} setMember={setMember} />}
+        {room === 'memory' && <MemoryBookRoom member={member} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && <PlaceholderRoom title={active.label} />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'mentors' && room !== 'memory' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
@@ -4453,7 +6947,7 @@ function Root() {
         return;
       }
 
-      const profile = await getUserProfile(currentUser.uid);
+      const profile = await getUserProfile(currentUser.uid, currentUser.email);
       setMember(profile);
       setLoading(false);
     });
