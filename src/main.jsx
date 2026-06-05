@@ -152,6 +152,23 @@ function makeInviteCode() {
 }
 
 async function getUserProfile(uid, email = '') {
+  const cleanEmail = email ? email.trim().toLowerCase() : '';
+
+  // First preference: the user document whose document ID is the Firebase Auth UID.
+  // This prevents old profile documents such as jctabdl-profile or jasethain-profile
+  // from overriding the latest saved My Bubble details after refresh.
+  const uidDocRef = doc(db, 'users', uid);
+  const uidDoc = await getDoc(uidDocRef);
+
+  if (uidDoc.exists()) {
+    return {
+      id: uidDoc.id,
+      ...uidDoc.data(),
+      uid,
+    };
+  }
+
+  // Second preference: any existing document with a matching uid field.
   const userQuery = query(
     collection(db, 'users'),
     where('uid', '==', uid),
@@ -164,22 +181,34 @@ async function getUserProfile(uid, email = '') {
     return {
       id: userResult.docs[0].id,
       ...userResult.docs[0].data(),
+      uid,
     };
   }
 
-  if (email) {
+  // Fallback for older imported profiles that were stored by email.
+  if (cleanEmail) {
     const emailQuery = query(
       collection(db, 'users'),
-      where('email', '==', email.trim().toLowerCase()),
+      where('email', '==', cleanEmail),
       limit(1)
     );
 
     const emailResult = await getDocs(emailQuery);
 
     if (!emailResult.empty) {
-      return {
+      const oldProfile = {
         id: emailResult.docs[0].id,
         ...emailResult.docs[0].data(),
+        uid,
+        email: cleanEmail,
+      };
+
+      // Create the proper UID-based profile doc so future logins use this one.
+      await setDoc(uidDocRef, oldProfile, { merge: true });
+
+      return {
+        id: uid,
+        ...oldProfile,
       };
     }
 
@@ -190,13 +219,18 @@ async function getUserProfile(uid, email = '') {
 
       if (
         helperData.email &&
-        helperData.email.trim().toLowerCase() === email.trim().toLowerCase()
+        helperData.email.trim().toLowerCase() === cleanEmail
       ) {
-        return {
-          id: helperDoc.id,
+        const helperProfile = {
+          id: uid,
           uid,
           ...helperData,
+          email: cleanEmail,
         };
+
+        await setDoc(uidDocRef, helperProfile, { merge: true });
+
+        return helperProfile;
       }
     }
   }
@@ -4508,6 +4542,12 @@ function ProfileRoom({ member, setMember }) {
 
     try {
       const updatedProfile = {
+        uid: member.uid,
+        email: member.email || auth.currentUser?.email || '',
+        role: member.role || 'member',
+        status: member.status || 'approved',
+        approved: member.approved === true || member.status === 'approved',
+        badges: member.badges || ['🐣 Little Hatchling'],
         displayName: cleanName,
         bio: cleanBio,
         avatar,
@@ -4520,20 +4560,29 @@ function ProfileRoom({ member, setMember }) {
         profileUpdatedAt: serverTimestamp(),
       };
 
+      // Always save the main profile using Firebase Auth UID as the document ID.
+      // This is the profile the app now loads first when you come back later.
       await setDoc(doc(db, 'users', member.uid), updatedProfile, { merge: true });
+
+      // If this member came from an older profile document such as jctabdl-profile,
+      // update that document too so old data does not come back and overwrite the view.
+      if (member.id && member.id !== member.uid) {
+        await setDoc(doc(db, 'users', member.id), updatedProfile, { merge: true });
+      }
 
       await setDoc(doc(db, 'presence', member.uid), {
         uid: member.uid,
-        email: member.email,
         displayName: cleanName,
         avatar,
+        photoUrl,
         lastSeen: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true });
 
-      setMember({
+      const localProfile = {
         ...member,
         ...updatedProfile,
+        id: member.uid,
         displayName: cleanName,
         bio: cleanBio,
         avatar,
@@ -4543,7 +4592,9 @@ function ProfileRoom({ member, setMember }) {
         customGender: gender === 'Self-describe' ? customGender.trim() : '',
         communityInterests,
         interestsVisibility,
-      });
+      };
+
+      setMember(localProfile);
 
       setStatus('Profile updated.');
     } catch (err) {
@@ -4933,7 +4984,7 @@ function Root() {
         return;
       }
 
-      const profile = await getUserProfile(currentUser.uid);
+      const profile = await getUserProfile(currentUser.uid, currentUser.email);
       setMember(profile);
       setLoading(false);
     });
