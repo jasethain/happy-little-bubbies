@@ -1104,26 +1104,86 @@ function ChatRoom({ member, onPrivateMessageUser }) {
         <div ref={bottomRef} />
       </div>
 
-      <form className="composer" onSubmit={sendMessage}>
-        <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a cozy message" maxLength={1000} />
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-          title="Add photo"
+      <form
+        onSubmit={sendMessage}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          marginTop: 20,
+          padding: 18,
+          borderRadius: 28,
+          background: '#ffffff',
+          boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
+          border: '2px solid #dbeafe',
+        }}
+      >
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Type a cozy message"
+          maxLength={2000}
+          style={{
+            width: '100%',
+            minHeight: 160,
+            padding: 18,
+            borderRadius: 22,
+            border: 0,
+            background: '#f5f7fb',
+            resize: 'vertical',
+            fontSize: 16,
+            lineHeight: 1.6,
+            color: '#1e3a8a',
+            boxSizing: 'border-box',
+          }}
         />
-        {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
-        <button
-          type="button"
-          className="link-button"
-          onClick={() => applyBabyTalk(message, setMessage)}
-          disabled={!message.trim() || sending || uploadingPhoto}
-        >
-          🍼 Make baby babble
-        </button>
-        <button type="submit" disabled={sending || uploadingPhoto}>
-          <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
-        </button>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <label
+            style={{
+              background: '#eef6ff',
+              color: '#1e3a8a',
+              borderRadius: 999,
+              padding: '12px 18px',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            📎 Add photo
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+              title="Add photo"
+              style={{ display: 'none' }}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => applyBabyTalk(message, setMessage)}
+            disabled={!message.trim() || sending || uploadingPhoto}
+            style={{
+              background: '#f9a8d4',
+              color: '#1e3a8a',
+              border: '2px solid #f472b6',
+              borderRadius: 999,
+              padding: '12px 18px',
+              fontWeight: 900,
+              cursor: !message.trim() || sending || uploadingPhoto ? 'not-allowed' : 'pointer',
+              opacity: !message.trim() || sending || uploadingPhoto ? 0.6 : 1,
+              boxShadow: '0 8px 18px rgba(244, 114, 182, 0.24)',
+            }}
+          >
+            🍼 Make baby babble
+          </button>
+
+          {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+
+          <button type="submit" className="primary" disabled={sending || uploadingPhoto} style={{ marginLeft: 'auto', minWidth: 180 }}>
+            <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
+          </button>
+        </div>
       </form>
     </section>
   );
@@ -2318,10 +2378,18 @@ function FriendChatRoom({ member }) {
           <p>Accept a friend request before starting a friend chat.</p>
         </div>
       ) : (
-        <div className="cards">
-          <div className="feature-card">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(210px, 260px) minmax(0, 1fr)',
+            gap: 18,
+            alignItems: 'start',
+          }}
+        >
+          <div className="feature-card" style={{ padding: 20, alignSelf: 'start' }}>
             <span>🧸</span>
             <h3>Friends</h3>
+            <p className="muted" style={{ marginTop: 0 }}>Pick a friend to chat with.</p>
             {friends.map((friend) => (
               <FriendButton
                 key={friend.uid}
@@ -2332,7 +2400,7 @@ function FriendChatRoom({ member }) {
             ))}
           </div>
 
-          <div className="feature-card" style={{ gridColumn: 'span 2' }}>
+          <div className="feature-card" style={{ minWidth: 0, padding: 24 }}>
             <span>💬</span>
             <h3>{selectedFriend ? `Chat with ${selectedFriend.displayName}` : 'Pick a friend'}</h3>
             {selectedFriend && (
@@ -2363,7 +2431,7 @@ function FriendChatRoom({ member }) {
               </div>
             )}
 
-            <div className="list" style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 18 }}>
+            <div className="list" style={{ maxHeight: 520, overflowY: 'auto', marginBottom: 18, paddingRight: 8 }}>
               {threadMessages.length === 0 && (
                 <div className="bubble">
                   <strong>No messages yet</strong>
@@ -2418,33 +2486,94 @@ function FriendChatRoom({ member }) {
               <div ref={bottomRef} />
             </div>
 
-            <form className="composer" onSubmit={sendFriendChatMessage}>
-              <input
+            <form
+              onSubmit={sendFriendChatMessage}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                marginTop: 20,
+                padding: 18,
+                borderRadius: 28,
+                background: '#ffffff',
+                boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
+                border: '2px solid #dbeafe',
+              }}
+            >
+              <textarea
                 value={message}
                 onChange={(e) => handleTyping(e.target.value)}
                 placeholder={selectedFriend ? `Message ${selectedFriend.displayName}` : 'Pick a friend first'}
-                maxLength={1000}
+                maxLength={2000}
                 disabled={!selectedFriend}
+                style={{
+                  width: '100%',
+                  minHeight: 180,
+                  padding: 18,
+                  borderRadius: 22,
+                  border: 0,
+                  background: '#f5f7fb',
+                  resize: 'vertical',
+                  fontSize: 16,
+                  lineHeight: 1.6,
+                  color: '#1e3a8a',
+                  boxSizing: 'border-box',
+                }}
               />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-                disabled={!selectedFriend}
-                title="Add photo"
-              />
-              {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => applyBabyTalk(message, setMessage)}
-                disabled={!message.trim() || sending || uploadingPhoto || !selectedFriend}
-              >
-                🍼 Make baby babble
-              </button>
-              <button type="submit" disabled={sending || uploadingPhoto || !selectedFriend}>
-                <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
-              </button>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <label
+                  style={{
+                    background: '#eef6ff',
+                    color: '#1e3a8a',
+                    borderRadius: 999,
+                    padding: '12px 18px',
+                    fontWeight: 900,
+                    cursor: selectedFriend ? 'pointer' : 'not-allowed',
+                    opacity: selectedFriend ? 1 : 0.6,
+                  }}
+                >
+                  📎 Add photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                    disabled={!selectedFriend}
+                    title="Add photo"
+                    style={{ display: 'none' }}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => applyBabyTalk(message, setMessage)}
+                  disabled={!message.trim() || sending || uploadingPhoto || !selectedFriend}
+                  style={{
+                    background: '#f9a8d4',
+                    color: '#1e3a8a',
+                    border: '2px solid #f472b6',
+                    borderRadius: 999,
+                    padding: '12px 18px',
+                    fontWeight: 900,
+                    cursor: !message.trim() || sending || uploadingPhoto || !selectedFriend ? 'not-allowed' : 'pointer',
+                    opacity: !message.trim() || sending || uploadingPhoto || !selectedFriend ? 0.6 : 1,
+                    boxShadow: '0 8px 18px rgba(244, 114, 182, 0.24)',
+                  }}
+                >
+                  🍼 Make baby babble
+                </button>
+
+                {photoFile && <span className="muted">Photo ready: {photoFile.name}</span>}
+
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={sending || uploadingPhoto || !selectedFriend}
+                  style={{ marginLeft: 'auto', minWidth: 180 }}
+                >
+                  <Send size={16} /> {uploadingPhoto ? 'Uploading photo...' : sending ? 'Sending...' : 'Send'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2477,12 +2606,34 @@ function FriendButton({ friend, selected, onClick }) {
 
   return (
     <button
-      className={selected ? 'primary' : 'link-button'}
+      type="button"
       onClick={onClick}
-      style={{ width: '100%', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      style={{
+        width: '100%',
+        marginBottom: 8,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 8,
+        border: selected ? '2px solid #60a5fa' : '1px solid #dbeafe',
+        background: selected ? '#eaf2ff' : '#ffffff',
+        color: '#1e3a8a',
+        borderRadius: 18,
+        padding: '12px 14px',
+        fontWeight: 900,
+        cursor: 'pointer',
+        textAlign: 'left',
+        boxShadow: selected ? '0 10px 22px rgba(96, 165, 250, 0.18)' : 'none',
+      }}
     >
-      <span>{presence?.online ? '🟢' : '⚪'} {friend.displayName}</span>
-      {unread && <span>NEW</span>}
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {presence?.online ? '🟢' : '⚪'} {friend.displayName}
+      </span>
+      {unread && (
+        <span style={{ background: '#f472b6', color: '#ffffff', borderRadius: 999, padding: '2px 8px', fontSize: 12 }}>
+          NEW
+        </span>
+      )}
     </button>
   );
 }
