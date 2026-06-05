@@ -186,72 +186,167 @@ function toBabyTalk(text) {
   let output = String(text || '').trim();
   if (!output) return '';
 
+  // Soft, playful baby-babble translator.
+  // Designed for fun community messages, not for changing saved profile/admin data.
+  output = output.toLowerCase();
+
   const phraseRules = [
-    [/\bhello everyone\b/gi, 'hi evyone'],
+    [/\bhello everyone[.!?]?\b/gi, 'hi evyone'],
+    [/\bhi everyone[.!?]?\b/gi, 'hi evyone'],
     [/\bhello\b/gi, 'hi'],
-    [/\bhi everyone\b/gi, 'hi evyone'],
-    [/\bhow are you\??/gi, 'howyou?'],
-    [/\bhow are you doing\??/gi, 'howyou doing?'],
+    [/\bhow are you doing\??\b/gi, 'howyou doing?'],
+    [/\bhow are you\??\b/gi, 'howyou?'],
+    [/\bhow r u\??\b/gi, 'howyou?'],
     [/\bi am good\b/gi, 'me good'],
     [/\bi'm good\b/gi, 'me good'],
-    [/\bi am ok\b/gi, 'me ok'],
-    [/\bi'm ok\b/gi, 'me ok'],
-    [/\bi am\b/gi, 'me'],
-    [/\bi'm\b/gi, 'me'],
-    [/\bi have\b/gi, 'me got'],
-    [/\bi want\b/gi, 'me want'],
-    [/\bcan i\b/gi, 'can me'],
-    [/\bmy\b/gi, 'me'],
-    [/\byou are\b/gi, 'you'],
-    [/\byou're\b/gi, 'you'],
-    [/\bare you\b/gi, 'you'],
-    [/\beveryone\b/gi, 'evyone'],
-    [/\bplease\b/gi, 'pwease'],
-    [/\blittle\b/gi, 'wittle'],
-    [/\breally\b/gi, 'weally'],
-    [/\bsorry\b/gi, 'sowwy'],
+    [/\bi am okay\b/gi, 'me otay'],
+    [/\bi'm okay\b/gi, 'me otay'],
+    [/\bi am ok\b/gi, 'me otay'],
+    [/\bi'm ok\b/gi, 'me otay'],
+    [/\bi am tired\b/gi, 'me eepy'],
+    [/\bi'm tired\b/gi, 'me eepy'],
+    [/\bi am sleepy\b/gi, 'me eepy'],
+    [/\bi'm sleepy\b/gi, 'me eepy'],
+    [/\bi am hungry\b/gi, 'me hungy'],
+    [/\bi'm hungry\b/gi, 'me hungy'],
+    [/\bi am thirsty\b/gi, 'me need wawa'],
+    [/\bi'm thirsty\b/gi, 'me need wawa'],
+    [/\bgood morning\b/gi, 'mownin bubby'],
+    [/\bgood night\b/gi, 'nye-nye'],
     [/\bthank you\b/gi, 'tank you'],
-    [/\bthanks\b/gi, 'tanks'],
-    [/\bgood morning\b/gi, 'morning bubby'],
-    [/\bgood night\b/gi, 'night night'],
-    [/\blove\b/gi, 'wuv'],
-    [/\byes\b/gi, 'yus'],
-    [/\bno\b/gi, 'nu'],
+    [/\bprivate message\b/gi, 'secret widdle letter'],
+    [/\bsee you later\b/gi, 'see yoo watew'],
   ];
 
   phraseRules.forEach(([pattern, replacement]) => {
     output = output.replace(pattern, replacement);
   });
 
+  const wordRules = [
+    [/\bokay\b/gi, 'otay'],
+    [/\bok\b/gi, 'otay'],
+    [/\byes\b/gi, 'yus'],
+    [/\bno\b/gi, 'nu'],
+    [/\bplease\b/gi, 'pwease'],
+    [/\bsorry\b/gi, 'sowwy'],
+    [/\breally\b/gi, 'weally'],
+    [/\blittle\b/gi, 'widdle'],
+    [/\blove\b/gi, 'wuv'],
+    [/\bloves\b/gi, 'wuvs'],
+    [/\bfriend\b/gi, 'fwend'],
+    [/\bfriends\b/gi, 'fwends'],
+    [/\beveryone\b/gi, 'evyone'],
+    [/\beverybody\b/gi, 'evybubby'],
+    [/\bsomeone\b/gi, 'somebubby'],
+    [/\bpeople\b/gi, 'bubbies'],
+    [/\bperson\b/gi, 'bubby'],
+    [/\bbaby\b/gi, 'bubby'],
+    [/\bbabies\b/gi, 'bubbies'],
+    [/\bsleepy\b/gi, 'eepy'],
+    [/\bsleep\b/gi, 'eep'],
+    [/\btired\b/gi, 'eepy'],
+    [/\bbed\b/gi, 'nye-nye'],
+    [/\bnap\b/gi, 'nappy-nap'],
+    [/\bblanket\b/gi, 'bwankie'],
+    [/\bbottle\b/gi, 'bo-bo'],
+    [/\bdrink\b/gi, 'dwinkie'],
+    [/\bwater\b/gi, 'wawa'],
+    [/\bmilk\b/gi, 'milkie'],
+    [/\bchocolate\b/gi, 'choccy'],
+    [/\bfood\b/gi, 'nummies'],
+    [/\bbreakfast\b/gi, 'nummo'],
+    [/\blunch\b/gi, 'wunchies'],
+    [/\bdinner\b/gi, 'din-dins'],
+    [/\bsnack\b/gi, 'snackie'],
+    [/\bsnacks\b/gi, 'snackies'],
+    [/\bhungry\b/gi, 'hungy'],
+    [/\bscared\b/gi, 'skeered'],
+    [/\bcold\b/gi, 'coldies'],
+    [/\bhot\b/gi, 'hotties'],
+    [/\bmessage\b/gi, 'msgie'],
+    [/\bchat\b/gi, 'chatties'],
+    [/\badmin\b/gi, 'head helper'],
+    [/\bdiaper\b/gi, 'diapie'],
+    [/\bnappy\b/gi, 'nappie'],
+    [/\bbecause\b/gi, 'cuz'],
+    [/\bwant to\b/gi, 'wanna'],
+    [/\bgoing to\b/gi, 'gonna'],
+    [/\bgot to\b/gi, 'gotta'],
+    [/\bcome here\b/gi, 'come hewe'],
+  ];
+
+  wordRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  const grammarRules = [
+    [/\bi am\b/gi, 'me'],
+    [/\bi'm\b/gi, 'me'],
+    [/\bi have\b/gi, 'me got'],
+    [/\bi've\b/gi, 'me got'],
+    [/\bi want\b/gi, 'me want'],
+    [/\bi need\b/gi, 'me need'],
+    [/\bmy\b/gi, 'me'],
+    [/\bmine\b/gi, 'miney'],
+    [/\byou are\b/gi, 'you'],
+    [/\byou're\b/gi, 'you'],
+    [/\bare you\b/gi, 'you'],
+    [/\byour\b/gi, 'you'],
+    [/\bthe\b/gi, 'da'],
+    [/\bthat\b/gi, 'dat'],
+    [/\bthis\b/gi, 'dis'],
+    [/\bthere\b/gi, 'dere'],
+    [/\bthem\b/gi, 'dem'],
+    [/\bthey\b/gi, 'dey'],
+    [/\bthese\b/gi, 'deese'],
+    [/\bthose\b/gi, 'dose'],
+    [/\bwith\b/gi, 'wif'],
+    [/\band\b/gi, 'an'],
+    [/\bfor\b/gi, 'fo'],
+    [/\bto\b/gi, 'ta'],
+  ];
+
+  grammarRules.forEach(([pattern, replacement]) => {
+    output = output.replace(pattern, replacement);
+  });
+
+  // Phonetic cuteness pass: th -> d/f, r/l -> w, but protect common baby words already made.
+  const protectedWords = new Set([
+    'hi', 'me', 'good', 'otay', 'yus', 'nu', 'eepy', 'nummies', 'nummo', 'bo-bo',
+    'nye-nye', 'bwankie', 'wawa', 'milkie', 'choccy', 'snackie', 'snackies',
+    'diapie', 'nappie', 'bubby', 'bubbies', 'evyone', 'howyou?', 'howyou'
+  ]);
+
   output = output
-    .replace(/\bthe\b/gi, 'da')
-    .replace(/\bthat\b/gi, 'dat')
-    .replace(/\bthis\b/gi, 'dis')
-    .replace(/\bthere\b/gi, 'dere')
-    .replace(/\bwith\b/gi, 'wif')
-    .replace(/\band\b/gi, 'an')
-    .replace(/\bfor\b/gi, 'fo')
-    .replace(/\bto\b/gi, 'ta')
-    .replace(/\byour\b/gi, 'you')
-    .replace(/\bfriend\b/gi, 'fwend')
-    .replace(/\bfriends\b/gi, 'fwends')
-    .replace(/\bmessage\b/gi, 'msg')
+    .split(/(\s+|[.,!?]+)/)
+    .map((part) => {
+      if (!part || /^\s+$/.test(part) || /^[.,!?]+$/.test(part)) return part;
+      if (protectedWords.has(part)) return part;
+
+      let word = part;
+      word = word.replace(/th/gi, (match, offset, full) => {
+        const lower = full.toLowerCase();
+        if (lower.startsWith('th')) return match[0] === match[0].toUpperCase() ? 'D' : 'd';
+        return match[0] === match[0].toUpperCase() ? 'F' : 'f';
+      });
+
+      if (word.length >= 4) {
+        word = word.replace(/[rl]/gi, (match) => (match === match.toUpperCase() ? 'W' : 'w'));
+      }
+
+      // Add soft -ie endings to selected simple words.
+      word = word.replace(/\b(cute|nice|sweet|fun|sad|mad|big|small)\b/gi, '$1ie');
+
+      return word;
+    })
+    .join('');
+
+  output = output
     .replace(/\s+/g, ' ')
     .replace(/\s+([?.!,])/g, '$1')
+    .replace(/([?.!]){2,}/g, '$1')
+    .replace(/\bhi evyone\. howyou\? me good\b/gi, 'hi evyone. howyou? me good')
     .trim();
-
-  // Add a softer baby-babble sound by changing r/l sounds in longer words.
-  output = output
-    .split(/(\s+)/)
-    .map((part) => {
-      if (/^\s+$/.test(part) || part.length < 4) return part;
-      return part.replace(/[rl]/gi, (match) => (match === match.toUpperCase() ? 'W' : 'w'));
-    })
-    .join('')
-    .replace(/\bhewwo\b/gi, 'hi')
-    .replace(/\bevyone\b/gi, 'evyone')
-    .replace(/\bhowyou\b/gi, 'howyou')
-    .replace(/\bme good\b/gi, 'me good');
 
   return output.charAt(0).toLowerCase() + output.slice(1);
 }
