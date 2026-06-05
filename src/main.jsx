@@ -553,8 +553,7 @@ function HomeRoom({ setRoom, member, counts }) {
     <section className="room">
       <div className="hero">
         <h2>Welcome, {member.displayName}.</h2>
-        <p>Stage 11 adds Story Corner posts, comments, likes, and Helper Bubby moderation.</p>
-      </div>
+              </div>
 
       {member.role === 'admin' && (
         <div className="profile" style={{ marginBottom: 20 }}>
