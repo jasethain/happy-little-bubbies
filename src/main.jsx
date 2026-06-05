@@ -944,13 +944,34 @@ function InboxRoom({ member }) {
 }
 
 function FriendsRoom({ member }) {
-  const [friendEmail, setFriendEmail] = useState('');
+  const [selectedFriendUid, setSelectedFriendUid] = useState('');
+  const [availableUsers, setAvailableUsers] = useState([]);
   const [status, setStatus] = useState('');
   const [requests, setRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [inviteCode, setInviteCode] = useState('');
   const [inviteStatus, setInviteStatus] = useState('');
   const [creatingInvite, setCreatingInvite] = useState(false);
+
+  useEffect(() => {
+    const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      usersQuery,
+      (snapshot) => {
+        const loadedUsers = snapshot.docs
+          .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+          .filter((user) => user.uid && user.uid !== member.uid)
+          .filter((user) => user.status === 'approved' || user.approved === true)
+          .sort((a, b) => String(a.displayName || '').localeCompare(String(b.displayName || '')));
+
+        setAvailableUsers(loadedUsers);
+      },
+      (err) => setStatus(err.message || 'Could not load members.')
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
 
   useEffect(() => {
     const requestQuery = query(collection(db, 'friendRequests'), orderBy('createdAt', 'desc'));
@@ -1014,7 +1035,7 @@ function FriendsRoom({ member }) {
   async function copyInvite() {
     if (!inviteCode) return;
 
-    const inviteText = `Join Happy Little Bubbies with invite code: ${inviteCode}`;
+    const inviteText = `You are invited to join an invite only community called Happy Little Bubbies. To join click on https://happy-little-bubbies.vercel.app/ and use the code below\n\n${inviteCode}`;
 
     try {
       await navigator.clipboard.writeText(inviteText);
@@ -1028,40 +1049,46 @@ function FriendsRoom({ member }) {
     event.preventDefault();
     setStatus('');
 
-    const cleanEmail = friendEmail.trim().toLowerCase();
-    if (!cleanEmail) return;
+    if (!selectedFriendUid) {
+      setStatus('Please choose a member from the list.');
+      return;
+    }
 
     try {
-      if (cleanEmail === member.email) throw new Error('You cannot friend-request yourself.');
+      const recipient = availableUsers.find((user) => user.uid === selectedFriendUid);
+      if (!recipient) throw new Error('Please choose a valid member from the list.');
+      if (recipient.uid === member.uid) throw new Error('You cannot friend-request yourself.');
 
-      const userQuery = query(collection(db, 'users'), where('email', '==', cleanEmail), limit(1));
-      const userResult = await getDocs(userQuery);
-      if (userResult.empty) throw new Error('No member found with that email address.');
-
-      const recipient = userResult.docs[0].data();
-
-      const duplicateQuery = query(
+      const duplicateOutgoingQuery = query(
         collection(db, 'friendRequests'),
         where('fromUid', '==', member.uid),
         where('toUid', '==', recipient.uid),
         where('status', '==', 'pending'),
         limit(1)
       );
-      const duplicateResult = await getDocs(duplicateQuery);
-      if (!duplicateResult.empty) throw new Error('Friend request already sent.');
+      const duplicateOutgoingResult = await getDocs(duplicateOutgoingQuery);
+      if (!duplicateOutgoingResult.empty) throw new Error('Friend request already sent.');
+
+      const duplicateIncomingQuery = query(
+        collection(db, 'friendRequests'),
+        where('fromUid', '==', recipient.uid),
+        where('toUid', '==', member.uid),
+        where('status', '==', 'pending'),
+        limit(1)
+      );
+      const duplicateIncomingResult = await getDocs(duplicateIncomingQuery);
+      if (!duplicateIncomingResult.empty) throw new Error('This member has already sent you a friend request.');
 
       await addDoc(collection(db, 'friendRequests'), {
         fromUid: member.uid,
-        fromEmail: member.email,
         fromName: member.displayName,
         toUid: recipient.uid,
-        toEmail: recipient.email,
-        toName: recipient.displayName || recipient.email,
+        toName: recipient.displayName || 'Happy Little Bubby',
         status: 'pending',
         createdAt: serverTimestamp(),
       });
 
-      setFriendEmail('');
+      setSelectedFriendUid('');
       setStatus('Friend request sent.');
     } catch (err) {
       setStatus(err.message || 'Friend request failed.');
@@ -1163,8 +1190,7 @@ function FriendsRoom({ member }) {
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
-            
-            </p>
+                          </p>
           </div>
         </div>
       </div>
@@ -1189,7 +1215,24 @@ function FriendsRoom({ member }) {
             >
               {inviteCode}
             </p>
-            <button className="link-button" onClick={copyInvite}>Copy invite</button>
+            <p className="muted" style={{ marginTop: 12 }}>Copy this email script:</p>
+            <textarea
+              readOnly
+              value={`You are invited to join an invite only community called Happy Little Bubbies. To join click on https://happy-little-bubbies.vercel.app/ and use the code below\n\n${inviteCode}`}
+              style={{
+                width: '100%',
+                minHeight: 130,
+                border: '0',
+                borderRadius: 18,
+                padding: 14,
+                fontSize: 15,
+                fontWeight: 700,
+                background: '#f5f7fb',
+                color: '#334155',
+                resize: 'vertical',
+              }}
+            />
+            <button className="link-button" onClick={copyInvite}>Copy email script</button>
           </div>
         )}
 
@@ -1199,8 +1242,15 @@ function FriendsRoom({ member }) {
       <div className="profile" style={{ marginBottom: 20 }}>
         <h3>Send friend request</h3>
         <form className="form compact" onSubmit={sendFriendRequest}>
-          <input value={friendEmail} onChange={(e) => setFriendEmail(e.target.value)} placeholder="Friend email address" type="email" />
-          <button type="submit">Send friend request</button>
+          <select value={selectedFriendUid} onChange={(e) => setSelectedFriendUid(e.target.value)}>
+            <option value="">Choose a member</option>
+            {availableUsers.map((user) => (
+              <option key={user.uid} value={user.uid}>
+                {user.displayName || 'Happy Little Bubby'}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={!selectedFriendUid}>Send friend request</button>
         </form>
         {status && <p className={status.includes('sent') || status.includes('accepted') || status.includes('declined') ? 'success' : 'error'}>{status}</p>}
       </div>
