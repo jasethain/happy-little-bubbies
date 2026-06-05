@@ -1163,7 +1163,7 @@ function FriendsRoom({ member }) {
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
-              
+            
             </p>
           </div>
         </div>
@@ -1213,7 +1213,7 @@ function FriendsRoom({ member }) {
           {incoming.map((request) => (
             <div className="bubble" key={request.id}>
               <strong>{request.fromName}</strong>
-              <p>{request.fromEmail}</p>
+              <p className="muted">Friend request from this member</p>
               <button className="primary" onClick={() => acceptFriendRequest(request)}>Accept</button>
               <button className="link-button" onClick={() => declineFriendRequest(request)}>Decline</button>
             </div>
@@ -1227,7 +1227,7 @@ function FriendsRoom({ member }) {
           {outgoing.map((request) => (
             <div className="bubble" key={request.id}>
               <strong>{request.toName}</strong>
-              <p>{request.toEmail}</p>
+              <p className="muted">Waiting for this member to respond</p>
               <p className="muted">Pending</p>
             </div>
           ))}
@@ -1272,7 +1272,7 @@ function PresenceCard({ person }) {
   return (
     <div className="bubble">
       <strong>{person?.displayName || 'Friend'}</strong>
-      <p>{person?.email}</p>
+      <p className="muted">Happy Little Bubbies member</p>
       <p className="muted">
         {presence?.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
       </p>
@@ -1310,7 +1310,7 @@ function FriendChatRoom({ member }) {
               chatId: chatIdFor(member.uid, other?.uid || ''),
               uid: other?.uid,
               email: other?.email,
-              displayName: other?.displayName || other?.email || 'Friend',
+              displayName: other?.displayName || 'Friend',
             };
           })
           .filter((friend) => friend.uid);
@@ -1752,7 +1752,7 @@ function NotificationsRoom({ member, counts }) {
           {requests.map((request) => (
             <div className="bubble" key={request.id}>
               <strong>{request.fromName}</strong>
-              <p>{request.fromEmail}</p>
+              <p className="muted">Friend request from this member</p>
             </div>
           ))}
         </div>
@@ -2672,7 +2672,7 @@ function StoryCornerRoom({ member }) {
                         <option value="">Choose a friend</option>
                         {friends.map((friend) => (
                           <option key={friend.uid} value={friend.uid}>
-                            {friend.displayName || friend.email}
+                            {friend.displayName || 'Friend'}
                           </option>
                         ))}
                       </select>
@@ -2991,8 +2991,8 @@ function AdminConsole({ member }) {
           {presenceList.length === 0 && <p>No presence records yet.</p>}
           {presenceList.map((person) => (
             <div className="bubble" key={person.id}>
-              <strong>{person.displayName || person.email}</strong>
-              <p>{person.email}</p>
+              <strong>{person.displayName || 'Member'}</strong>
+              <p className="muted">Happy Little Bubbies member</p>
               <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
             </div>
           ))}
@@ -3005,7 +3005,7 @@ function AdminConsole({ member }) {
         {pendingUsers.map((user) => (
           <div className="bubble" key={user.id}>
             <strong>{user.displayName || user.email}</strong>
-            <p>{user.email}</p>
+            <p className="muted">Email hidden from member view</p>
             <p className="muted">Joined: {formatDate(user.createdAt)}</p>
             <button className="primary" onClick={() => approveUser(user)}>Approve</button>
             <button className="link-button" onClick={() => suspendUser(user)}>Suspend</button>
@@ -3019,7 +3019,7 @@ function AdminConsole({ member }) {
         {users.map((user) => (
           <div className="bubble" key={user.id}>
             <strong>{user.displayName || user.email}</strong>
-            <p>{user.email}</p>
+            <p className="muted">Email hidden from member view</p>
             <p className="muted">Role: {user.role || 'member'} | Status: {user.status || 'unknown'}</p>
             <button className="primary" onClick={() => approveUser(user)}>Approve</button>
             <button className="link-button" onClick={() => suspendUser(user)}>Suspend</button>
