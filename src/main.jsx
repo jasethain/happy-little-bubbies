@@ -6919,47 +6919,145 @@ function buildCartoonAvatarDataUrl(options = {}) {
   const top = options.top || '#1e3a8a';
   const accessory = options.accessory || 'coffee';
   const name = String(options.name || '').trim().slice(0, 10).toUpperCase();
+  const safeName = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const outline = '#201326';
+  const blush = '#f9a8d4';
+  const diaperPattern = top;
 
   const hairShape = hairStyle === 'short'
-    ? `<path d="M94 92c6-39 32-59 72-58 44 1 70 26 75 66-31-25-89-27-147-8z" fill="${hair}"/>`
+    ? `
+      <g filter="url(#softShadow)">
+        <path d="M145 125c-4-42 27-80 77-82 58-2 94 31 95 84-26-27-53-38-90-36-35 2-60 12-82 34z" fill="${hair}" stroke="${outline}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M163 89c31-32 82-34 124-7-35-8-78 4-124 34z" fill="#ffffff" opacity=".22"/>
+        <path d="M188 61c-14 15-20 31-17 51" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".26"/>
+      </g>`
     : hairStyle === 'silver'
-      ? `<path d="M91 98c16-48 54-73 103-59 29 8 44 29 49 60-35-23-88-24-152-1z" fill="#d8d8d8"/><path d="M132 45c21-17 59-16 84 5-25-4-47 3-84 28z" fill="#f3f4f6"/>`
-      : `<path d="M78 101c10-48 42-75 92-72 48 3 75 32 80 77-29-25-55-37-92-37-35 0-60 10-80 32z" fill="${hair}"/><path d="M74 101c-28 54-14 133 8 183 24 18 54 10 54-18-35-55-37-123-12-174z" fill="${hair}"/>`;
+      ? `
+      <g filter="url(#softShadow)">
+        <path d="M139 126c6-57 47-91 104-87 47 4 78 34 82 83-40-24-96-25-186 4z" fill="#d6d8dc" stroke="${outline}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M172 47c32-19 82-12 115 25-38-15-76-7-128 41z" fill="#f7f7f8" stroke="${outline}" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M207 42c-17 20-27 43-27 71" stroke="#ffffff" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+        <path d="M248 50c-23 19-39 41-48 67" stroke="#a1a1aa" stroke-width="5" stroke-linecap="round" opacity=".45"/>
+      </g>`
+      : `
+      <g filter="url(#softShadow)">
+        <path d="M129 131c3-58 42-96 101-96 61 0 101 40 105 96-40-35-126-43-206 0z" fill="${hair}" stroke="${outline}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M130 122c-48 41-51 123-24 210 34 22 70 4 65-32-33-67-28-132 4-184z" fill="${hair}" stroke="${outline}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M112 151c-26 58-20 121 6 180" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".18"/>
+        <path d="M146 94c34-38 105-43 158-1-50-18-107-8-158 33z" fill="#ffffff" opacity=".20"/>
+        <path d="M163 62c-19 32-24 66-17 104" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity=".22"/>
+        <path d="M202 47c-23 32-31 75-26 125" stroke="#5b2f12" stroke-width="5" stroke-linecap="round" opacity=".25"/>
+      </g>`;
 
   const accessorySvg = accessory === 'teddy'
-    ? `<g transform="translate(173 223)"><circle cx="30" cy="26" r="24" fill="#b7791f"/><circle cx="11" cy="7" r="9" fill="#b7791f"/><circle cx="49" cy="7" r="9" fill="#b7791f"/><circle cx="30" cy="30" r="10" fill="#f6d7a7"/><circle cx="21" cy="22" r="3" fill="#111827"/><circle cx="39" cy="22" r="3" fill="#111827"/></g>`
+    ? `<g transform="translate(278 355) rotate(-7)" filter="url(#softShadow)">
+        <circle cx="44" cy="44" r="34" fill="#b7791f" stroke="${outline}" stroke-width="5"/>
+        <circle cx="16" cy="14" r="15" fill="#b7791f" stroke="${outline}" stroke-width="4"/>
+        <circle cx="72" cy="14" r="15" fill="#b7791f" stroke="${outline}" stroke-width="4"/>
+        <circle cx="44" cy="51" r="15" fill="#f6d7a7" stroke="${outline}" stroke-width="3"/>
+        <circle cx="32" cy="36" r="4" fill="#111827"/><circle cx="56" cy="36" r="4" fill="#111827"/>
+        <path d="M38 51c4 6 8 6 12 0" stroke="#111827" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </g>`
     : accessory === 'duck'
-      ? `<g transform="translate(174 235)"><ellipse cx="35" cy="25" rx="34" ry="22" fill="#facc15"/><circle cx="22" cy="9" r="16" fill="#facc15"/><path d="M5 10h-20l18 10z" fill="#f97316"/><circle cx="18" cy="5" r="3" fill="#111827"/></g>`
-      : `<g transform="translate(183 221)"><rect x="0" y="8" width="42" height="57" rx="9" fill="#f8fafc" stroke="#7c2d12" stroke-width="5"/><rect x="-4" y="0" width="50" height="12" rx="5" fill="#7c2d12"/><rect x="6" y="18" width="30" height="27" rx="4" fill="#c08457"/></g>`;
+      ? `<g transform="translate(285 378) rotate(-8)" filter="url(#softShadow)">
+          <ellipse cx="45" cy="32" rx="42" ry="27" fill="#facc15" stroke="${outline}" stroke-width="5"/>
+          <circle cx="28" cy="14" r="21" fill="#facc15" stroke="${outline}" stroke-width="5"/>
+          <path d="M8 14h-25l25 14z" fill="#fb923c" stroke="${outline}" stroke-width="4" stroke-linejoin="round"/>
+          <circle cx="23" cy="8" r="4" fill="#111827"/>
+          <path d="M38 21c19 1 31 8 38 19" stroke="#fde68a" stroke-width="5" stroke-linecap="round" opacity=".6"/>
+        </g>`
+      : `<g transform="translate(296 350) rotate(-4)" filter="url(#softShadow)">
+          <rect x="0" y="13" width="58" height="78" rx="13" fill="#f8fafc" stroke="${outline}" stroke-width="5"/>
+          <rect x="-6" y="2" width="70" height="17" rx="7" fill="#7c2d12" stroke="${outline}" stroke-width="4"/>
+          <rect x="9" y="31" width="40" height="36" rx="5" fill="#c08457" opacity=".95"/>
+          <path d="M11 39h35" stroke="#ffffff" stroke-width="4" opacity=".35"/>
+        </g>`;
 
   const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640">
     <defs>
-      <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#dbeafe"/><stop offset="1" stop-color="#fce7f3"/></linearGradient>
+      <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+        <stop stop-color="#dbeafe"/>
+        <stop offset=".55" stop-color="#fff7ed"/>
+        <stop offset="1" stop-color="#fce7f3"/>
+      </linearGradient>
+      <linearGradient id="skinGlow" x1="0" x2="1" y1="0" y2="1">
+        <stop stop-color="#ffffff" stop-opacity=".34"/>
+        <stop offset="1" stop-color="#7c2d12" stop-opacity=".12"/>
+      </linearGradient>
+      <filter id="softShadow" x="-30%" y="-30%" width="160%" height="170%">
+        <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#1e293b" flood-opacity=".23"/>
+      </filter>
+      <filter id="lineLift" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="1.2" flood-color="#000000" flood-opacity=".28"/>
+      </filter>
+      <pattern id="diaperDots" width="36" height="36" patternUnits="userSpaceOnUse">
+        <circle cx="8" cy="8" r="3" fill="${diaperPattern}" opacity=".55"/>
+        <path d="M24 14l7 4-6 5z" fill="#f59e0b" opacity=".65"/>
+        <circle cx="25" cy="28" r="2.5" fill="#60a5fa" opacity=".65"/>
+      </pattern>
     </defs>
-    <rect width="320" height="360" rx="42" fill="url(#bg)"/>
-    <circle cx="92" cy="78" r="30" fill="#ffffff" opacity=".45"/>
-    <circle cx="238" cy="64" r="20" fill="#ffffff" opacity=".36"/>
-    <path d="M116 213c-31 14-52 49-50 99h188c2-50-19-85-50-99-26 20-62 20-88 0z" fill="${top}"/>
-    <path d="M89 311c8-54 32-82 71-82s63 28 71 82z" fill="#ffffff" opacity=".95"/>
-    <path d="M103 305c4 27 110 27 114 0 4 19-10 39-57 39s-61-20-57-39z" fill="#fff7ed"/>
-    <ellipse cx="160" cy="137" rx="82" ry="88" fill="${skin}"/>
+
+    <rect x="8" y="8" width="496" height="624" rx="62" fill="url(#bg)"/>
+    <path d="M56 128c78-62 148-79 237-54 87 24 128 83 164 157" fill="none" stroke="#ffffff" stroke-width="22" opacity=".24" stroke-linecap="round"/>
+    <circle cx="95" cy="105" r="42" fill="#ffffff" opacity=".42"/>
+    <circle cx="424" cy="89" r="26" fill="#ffffff" opacity=".38"/>
+    <path d="M69 518c91 48 281 53 381 0" fill="none" stroke="#bfdbfe" stroke-width="28" opacity=".45" stroke-linecap="round"/>
+
+    <g filter="url(#softShadow)">
+      <path d="M164 356c-66 25-98 77-101 164h386c-3-87-35-139-101-164-45 44-139 44-184 0z" fill="${top}" stroke="${outline}" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M174 378c53 34 113 34 166 0" fill="none" stroke="#ffffff" stroke-width="8" opacity=".18" stroke-linecap="round"/>
+      <path d="M148 401c-25 39-34 77-35 119h83c-10-42-8-78 6-109z" fill="#ffffff" opacity=".10"/>
+      ${safeName ? `<text x="256" y="462" text-anchor="middle" font-family="Arial, sans-serif" font-size="45" font-weight="900" letter-spacing="2" fill="#ffffff" filter="url(#lineLift)">${safeName}</text>` : ''}
+    </g>
+
+    <g filter="url(#softShadow)">
+      <path d="M131 406c-47 22-65 62-45 100 17 33 62 14 86-48z" fill="${skin}" stroke="${outline}" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M381 406c47 22 65 62 45 100-17 33-62 14-86-48z" fill="${skin}" stroke="${outline}" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M99 435c18 11 32 26 41 48" stroke="#ffffff" stroke-width="7" opacity=".18" stroke-linecap="round"/>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <path d="M166 482c4 63 176 63 180 0 14 47-14 94-90 94s-104-47-90-94z" fill="#fff7ed" stroke="${outline}" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M180 490c19 24 133 24 152 0 1 27-22 51-76 51s-77-24-76-51z" fill="url(#diaperDots)" opacity=".95"/>
+      <path d="M184 487c37 22 107 22 144 0" stroke="#ffffff" stroke-width="8" opacity=".6" stroke-linecap="round"/>
+    </g>
+
+    <g>
+      <ellipse cx="256" cy="225" rx="112" ry="122" fill="${skin}" stroke="${outline}" stroke-width="7"/>
+      <ellipse cx="256" cy="222" rx="95" ry="105" fill="url(#skinGlow)" opacity=".75"/>
+      <circle cx="148" cy="232" r="23" fill="${skin}" stroke="${outline}" stroke-width="6"/>
+      <circle cx="364" cy="232" r="23" fill="${skin}" stroke="${outline}" stroke-width="6"/>
+      <path d="M152 232c8 4 12 10 12 19" stroke="#7c2d12" stroke-width="4" opacity=".35" stroke-linecap="round"/>
+      <path d="M360 232c-8 4-12 10-12 19" stroke="#7c2d12" stroke-width="4" opacity=".35" stroke-linecap="round"/>
+    </g>
+
     ${hairShape}
-    <circle cx="126" cy="143" r="12" fill="#ffffff"/><circle cx="126" cy="143" r="6" fill="${eye}"/><circle cx="124" cy="140" r="2" fill="#ffffff"/>
-    <circle cx="194" cy="143" r="12" fill="#ffffff"/><circle cx="194" cy="143" r="6" fill="${eye}"/><circle cx="192" cy="140" r="2" fill="#ffffff"/>
-    <path d="M137 188c18 17 44 17 62 0" fill="none" stroke="#7f1d1d" stroke-width="7" stroke-linecap="round"/>
-    <circle cx="106" cy="172" r="9" fill="#f9a8d4" opacity=".55"/><circle cx="214" cy="172" r="9" fill="#f9a8d4" opacity=".55"/>
-    <path d="M112 120c12-10 29-10 42-2" stroke="#4b2e1a" stroke-width="6" stroke-linecap="round" fill="none"/>
-    <path d="M168 118c14-8 31-8 42 3" stroke="#4b2e1a" stroke-width="6" stroke-linecap="round" fill="none"/>
-    <path d="M88 238c-30 13-41 34-31 56 11 23 40 8 55-22z" fill="${skin}"/>
-    <path d="M232 238c30 13 41 34 31 56-11 23-40 8-55-22z" fill="${skin}"/>
+
+    <g filter="url(#lineLift)">
+      <path d="M186 194c22-16 51-15 68 2" stroke="#3b2415" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M272 196c22-17 50-17 68-1" stroke="#3b2415" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <ellipse cx="214" cy="231" rx="21" ry="25" fill="#ffffff" stroke="${outline}" stroke-width="4"/>
+      <ellipse cx="298" cy="231" rx="21" ry="25" fill="#ffffff" stroke="${outline}" stroke-width="4"/>
+      <circle cx="214" cy="232" r="11" fill="${eye}"/>
+      <circle cx="298" cy="232" r="11" fill="${eye}"/>
+      <circle cx="210" cy="226" r="4" fill="#ffffff"/>
+      <circle cx="294" cy="226" r="4" fill="#ffffff"/>
+      <path d="M255 238c-6 18-14 31-1 38" stroke="#7c2d12" stroke-width="5" opacity=".38" stroke-linecap="round" fill="none"/>
+      <path d="M222 298c24 25 65 25 89 0" fill="none" stroke="#7f1d1d" stroke-width="9" stroke-linecap="round"/>
+      <path d="M235 308c18 10 44 10 63 0" stroke="#ffffff" stroke-width="4" opacity=".55" stroke-linecap="round"/>
+      <circle cx="179" cy="278" r="15" fill="${blush}" opacity=".55"/>
+      <circle cx="333" cy="278" r="15" fill="${blush}" opacity=".55"/>
+      <circle cx="169" cy="267" r="4" fill="#ffffff" opacity=".65"/>
+      <circle cx="343" cy="267" r="4" fill="#ffffff" opacity=".65"/>
+    </g>
+
     ${accessorySvg}
-    ${name ? `<text x="160" y="268" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#ffffff">${name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>` : ''}
   </svg>`;
 
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
-
 function ProfileRoom({ member, setMember }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
@@ -7255,7 +7353,7 @@ function ProfileRoom({ member, setMember }) {
   function useCartoonAvatar() {
     setPhotoUrl(cartoonAvatarPreview);
     setAvatar('🎨');
-    setStatus('Cartoon avatar created. Click Save My Bubble to keep it.');
+    setStatus('High-quality cartoon avatar created. Click Save My Bubble to keep it.');
   }
 
   return (
@@ -7275,8 +7373,8 @@ function ProfileRoom({ member, setMember }) {
             alt="Profile"
             className="avatar"
             style={{
-              width: 120,
-              height: 120,
+              width: 150,
+              height: 150,
               objectFit: 'contain',
               borderRadius: '50%',
               background: '#ffffff',
@@ -7446,17 +7544,18 @@ function ProfileRoom({ member, setMember }) {
             }}
           >
             <h3 style={{ marginTop: 0 }}>🎨 Cartoon Avatar Builder</h3>
-            <p className="muted">Create a cute cartoon-style avatar for your Bubble, matching the Friends Chat artwork.</p>
+            <p className="muted">Build a sharper, layered storybook avatar for your Bubble. It uses high-detail SVG shapes so it stays crisp in profiles and chats.</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
               <img
                 src={cartoonAvatarPreview}
                 alt="Cartoon avatar preview"
                 style={{
-                  width: 150,
-                  height: 170,
+                  width: '100%',
+                  maxWidth: 320,
+                  height: 400,
                   objectFit: 'contain',
-                  borderRadius: 28,
+                  borderRadius: 32,
                   background: '#ffffff',
                   border: `4px solid ${previewTheme.accent}`,
                   boxShadow: previewTheme.glow,
@@ -7476,6 +7575,12 @@ function ProfileRoom({ member, setMember }) {
                   <label className="muted">Hair<br /><input type="color" value={cartoonHair} onChange={(e) => setCartoonHair(e.target.value)} /></label>
                   <label className="muted">Eyes<br /><input type="color" value={cartoonEye} onChange={(e) => setCartoonEye(e.target.value)} /></label>
                   <label className="muted">Top<br /><input type="color" value={cartoonTop} onChange={(e) => setCartoonTop(e.target.value)} /></label>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#f4b183'); setCartoonHair('#c8792a'); setCartoonHairStyle('wavy'); setCartoonEye('#7c4a21'); setCartoonTop('#7c3aed'); }}>Rainbow socks look</button>
+                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#f1b37f'); setCartoonHair('#d8d8d8'); setCartoonHairStyle('silver'); setCartoonEye('#7c4a21'); setCartoonTop('#1e3a8a'); }}>Jase hoodie look</button>
+                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#8b451f'); setCartoonHair('#1f2937'); setCartoonHairStyle('short'); setCartoonEye('#5b3415'); setCartoonTop('#b45309'); }}>Warm floral look</button>
                 </div>
 
                 <label className="muted">Hold item</label>
