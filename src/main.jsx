@@ -7214,7 +7214,8 @@ function ProfileRoom({ member, setMember }) {
 
       const uploadedPhotoUrl = await getDownloadURL(photoRef);
       setPhotoUrl(uploadedPhotoUrl);
-      setStatus('Profile photo uploaded. Click Save My Bubble to keep it.');
+      setAvatar('🖼️');
+      setStatus('Avatar uploaded. Click Save My Bubble to keep it.');
     } catch (err) {
       setStatus(err.message || 'Could not upload profile photo.');
     } finally {
@@ -7511,7 +7512,7 @@ function ProfileRoom({ member, setMember }) {
             maxLength={60}
           />
 
-          <label className="muted">Choose avatar</label>
+          <label className="muted">Emoji fallback avatar</label>
           <div
             style={{
               display: 'grid',
@@ -7536,114 +7537,106 @@ function ProfileRoom({ member, setMember }) {
 
           <div
             style={{
-              background: 'linear-gradient(135deg,#eff6ff,#fff7ed)',
-              borderRadius: 28,
-              padding: 18,
-              border: '2px solid #bfdbfe',
-              boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
-            }}
-          >
-            <h3 style={{ marginTop: 0 }}>🎨 Cartoon Avatar Builder</h3>
-            <p className="muted">Build a sharper, layered storybook avatar for your Bubble. It uses high-detail SVG shapes so it stays crisp in profiles and chats.</p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) minmax(0, 1fr)', gap: 22, alignItems: 'start' }}>
-              <img
-                src={cartoonAvatarPreview}
-                alt="Cartoon avatar preview"
-                style={{
-                  width: '100%',
-                  maxWidth: 320,
-                  height: 400,
-                  objectFit: 'contain',
-                  borderRadius: 32,
-                  background: '#ffffff',
-                  border: `4px solid ${previewTheme.accent}`,
-                  boxShadow: previewTheme.glow,
-                }}
-              />
-
-              <div style={{ display: 'grid', gap: 12 }}>
-                <label className="muted">Hair style</label>
-                <select value={cartoonHairStyle} onChange={(e) => setCartoonHairStyle(e.target.value)}>
-                  <option value="wavy">Long wavy hair</option>
-                  <option value="short">Short hair</option>
-                  <option value="silver">Silver styled hair</option>
-                </select>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
-                  <label className="muted">Skin<br /><input type="color" value={cartoonSkin} onChange={(e) => setCartoonSkin(e.target.value)} /></label>
-                  <label className="muted">Hair<br /><input type="color" value={cartoonHair} onChange={(e) => setCartoonHair(e.target.value)} /></label>
-                  <label className="muted">Eyes<br /><input type="color" value={cartoonEye} onChange={(e) => setCartoonEye(e.target.value)} /></label>
-                  <label className="muted">Top<br /><input type="color" value={cartoonTop} onChange={(e) => setCartoonTop(e.target.value)} /></label>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#f4b183'); setCartoonHair('#c8792a'); setCartoonHairStyle('wavy'); setCartoonEye('#7c4a21'); setCartoonTop('#7c3aed'); }}>Rainbow socks look</button>
-                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#f1b37f'); setCartoonHair('#d8d8d8'); setCartoonHairStyle('silver'); setCartoonEye('#7c4a21'); setCartoonTop('#1e3a8a'); }}>Jase hoodie look</button>
-                  <button type="button" className="link-button" onClick={() => { setCartoonSkin('#8b451f'); setCartoonHair('#1f2937'); setCartoonHairStyle('short'); setCartoonEye('#5b3415'); setCartoonTop('#b45309'); }}>Warm floral look</button>
-                </div>
-
-                <label className="muted">Hold item</label>
-                <select value={cartoonAccessory} onChange={(e) => setCartoonAccessory(e.target.value)}>
-                  <option value="coffee">Coffee cup</option>
-                  <option value="teddy">Teddy bear</option>
-                  <option value="duck">Rubber duck</option>
-                </select>
-
-                <button type="button" className="primary" onClick={useCartoonAvatar}>
-                  Use this cartoon avatar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
               background: '#f5f7fb',
               borderRadius: 22,
               padding: 18,
             }}
           >
-            <h3 style={{ marginTop: 0 }}>Profile Photo</h3>
-            <p className="muted">Upload a photo if you want to use it instead of an emoji avatar.</p>
+            <h3 style={{ marginTop: 0 }}>🫧 Avatar Studio</h3>
+            <p className="muted">
+              Use a polished avatar image that matches the banner artwork style. Upload your finished character image here and it will become your Bubble avatar.
+            </p>
 
-            {photoUrl && (
-              <img
-                src={photoUrl}
-                alt="Profile preview"
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(160px, 220px) minmax(0, 1fr)',
+                gap: 18,
+                alignItems: 'center',
+              }}
+            >
+              <div
                 style={{
-                  width: 120,
-                  height: 120,
-                  objectFit: 'contain',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  padding: 4,
+                  width: '100%',
+                  aspectRatio: '1 / 1',
+                  borderRadius: 32,
+                  background: 'linear-gradient(135deg,#eff6ff,#fff7ed,#fce7f3)',
                   border: `4px solid ${previewTheme.accent}`,
                   boxShadow: previewTheme.glow,
-                  display: 'block',
-                  marginBottom: 12,
+                  display: 'grid',
+                  placeItems: 'center',
+                  overflow: 'hidden',
                 }}
-              />
-            )}
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => uploadProfilePhoto(e.target.files?.[0])}
-            />
-
-            {photoUploading && <p className="muted">Uploading profile photo...</p>}
-
-            {photoUrl && (
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => setPhotoUrl('')}
-                style={{ marginTop: 10 }}
               >
-                Use emoji avatar instead
-              </button>
-            )}
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt="Avatar preview"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 64 }}>{avatar}</div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                <strong style={{ color: '#1e3a8a', fontSize: 18 }}>Upload a crisp character avatar</strong>
+                <p className="muted" style={{ margin: 0 }}>
+                  Best result: square PNG or JPG, at least 512 × 512. Use your cartoon character image from ChatGPT, Canva, or any art tool.
+                </p>
+
+                <label
+                  className="primary"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    width: 'fit-content',
+                    cursor: photoUploading ? 'not-allowed' : 'pointer',
+                    opacity: photoUploading ? 0.65 : 1,
+                  }}
+                >
+                  {photoUploading ? 'Uploading avatar...' : '📷 Upload avatar image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={photoUploading}
+                    onChange={(e) => uploadProfilePhoto(e.target.files?.[0])}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {photoUrl && (
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => {
+                        setPhotoUrl('');
+                        setAvatar('🧸');
+                        setStatus('Avatar removed. Click Save My Bubble to keep it.');
+                      }}
+                    >
+                      Remove avatar image
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setStatus('Create your avatar image in ChatGPT, then upload the finished PNG here.')}
+                  >
+                    ✨ How to create one
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <label className="muted" htmlFor="favouriteColour">Favourite colour/theme</label>
