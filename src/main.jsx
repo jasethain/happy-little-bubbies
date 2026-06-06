@@ -450,6 +450,9 @@ function applyBabyTalk(currentText, setter) {
 const BUBBLE_PROFILE_KEYS = [
   'displayName',
   'bio',
+  'age',
+  'biologicalAge',
+  'location',
   'avatar',
   'photoUrl',
   'cartoonSkin',
@@ -6822,6 +6825,9 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                 </div>
               )}
 
+              <p><strong>Age:</strong> {selectedProfile.age || 'Not set'}</p>
+              <p><strong>Biological age:</strong> {selectedProfile.biologicalAge || 'Not set'}</p>
+              <p><strong>Location:</strong> {selectedProfile.location || 'Not set'}</p>
               <p><strong>Favourite colour:</strong> {selectedProfile.favouriteColour || 'Baby Blue'}</p>
               <p><strong>Gender:</strong> {selectedProfile.gender === 'Self-describe' ? selectedProfile.customGender || 'Self-described' : selectedProfile.gender || 'Prefer not to say'}</p>
               <p><strong>Interests visibility:</strong> {selectedProfile.interestsVisibility || 'Public'}</p>
@@ -7100,6 +7106,9 @@ function ProfileRoom({ member, setMember }) {
 
   const [displayName, setDisplayName] = useState(member.displayName || '');
   const [bio, setBio] = useState(member.bio || '');
+  const [age, setAge] = useState(member.age || '');
+  const [biologicalAge, setBiologicalAge] = useState(member.biologicalAge || '');
+  const [location, setLocation] = useState(member.location || '');
   const [avatar, setAvatar] = useState(member.avatar || '🧸');
   const [cartoonSkin, setCartoonSkin] = useState(member.cartoonSkin || '#f4b183');
   const [cartoonHair, setCartoonHair] = useState(member.cartoonHair || '#c8792a');
@@ -7265,6 +7274,9 @@ function ProfileRoom({ member, setMember }) {
 
     const cleanName = displayName.trim();
     const cleanBio = bio.trim();
+    const cleanAge = age.trim();
+    const cleanBiologicalAge = biologicalAge.trim();
+    const cleanLocation = location.trim();
 
     if (!cleanName) {
       setStatus('Display name is required.');
@@ -7289,6 +7301,9 @@ function ProfileRoom({ member, setMember }) {
         uid: member.uid,
         displayName: cleanName,
         bio: cleanBio,
+        age: cleanAge,
+        biologicalAge: cleanBiologicalAge,
+        location: cleanLocation,
         avatar,
         photoUrl,
         cartoonSkin,
@@ -7387,6 +7402,9 @@ function ProfileRoom({ member, setMember }) {
         )}
         <h3>{member.displayName}</h3>
         {member.bio && <p style={{ whiteSpace: 'pre-wrap' }}>{member.bio}</p>}
+        <p><strong>Age:</strong> {member.age || 'Not set'}</p>
+        <p><strong>Biological age:</strong> {member.biologicalAge || 'Not set'}</p>
+        <p><strong>Location:</strong> {member.location || 'Not set'}</p>
 
         <p><strong>Role:</strong> {member.role === 'admin' ? 'Helper' : 'Member'}</p>
         <p><strong>Status:</strong> {member.status}</p>
@@ -7511,6 +7529,47 @@ function ProfileRoom({ member, setMember }) {
             placeholder="Display name"
             maxLength={60}
           />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <div>
+              <label className="muted" htmlFor="age">Age</label>
+              <input
+                id="age"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="Example: 35"
+                maxLength={30}
+              />
+            </div>
+
+            <div>
+              <label className="muted" htmlFor="biologicalAge">Biological age</label>
+              <input
+                id="biologicalAge"
+                value={biologicalAge}
+                onChange={(e) => setBiologicalAge(e.target.value)}
+                placeholder="Example: 35"
+                maxLength={30}
+              />
+            </div>
+
+            <div>
+              <label className="muted" htmlFor="location">Location</label>
+              <input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Example: Melbourne, Victoria"
+                maxLength={80}
+              />
+            </div>
+          </div>
 
           <label className="muted">Emoji fallback avatar</label>
           <div
