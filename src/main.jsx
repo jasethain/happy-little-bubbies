@@ -2822,7 +2822,7 @@ function FriendsRoom({ member }) {
         }}
       >
         <img
-          src="/friends-icon.png"
+          src="/friends-banner.png"
           alt="Friends banner"
           style={{
             width: '100%',
@@ -6588,6 +6588,25 @@ function MembersRoom({ member, onPrivateMessageUser }) {
     <section className="room">
       <h2 className="room-title-with-art"><NurseryFamilyIcon size={64} /> Nursery Family</h2>
       <p className="muted">Browse member bubbles by display name. Email addresses and user IDs stay private.</p>
+
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 28,
+          marginBottom: 24,
+          minHeight: 220,
+          boxShadow: '0 18px 45px rgba(0,0,0,0.14)',
+          background: '#f5f7fb',
+        }}
+      >
+        <img
+          src="/friends-icon.png"
+          alt="Nursery Family banner"
+          style={{ width:'100%', height:260, objectFit:'cover', display:'block' }}
+          draggable={false}
+        />
+      </div>
 
       <div
         style={{
