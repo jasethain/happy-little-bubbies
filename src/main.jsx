@@ -905,6 +905,387 @@ function SocialBabyPolish() {
   );
 }
 
+
+
+function IphonePortraitFixes() {
+  return (
+    <style>{`
+      html, body, #root {
+        width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+      }
+
+      img, video, canvas, iframe {
+        max-width: 100%;
+      }
+
+      .app, .main, main, .room {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
+      .game-shell,
+      .game-card,
+      .diaper-game-wrap,
+      .diaper-doom-wrap,
+      .iphone-game-shell,
+      .iphone-game-card {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+      }
+
+      .game-shell iframe,
+      .game-card iframe,
+      .diaper-game-wrap iframe,
+      .diaper-doom-wrap iframe,
+      iframe[title*="Diaper"],
+      iframe[title*="Game"] {
+        width: 100%;
+        max-width: 100%;
+        border: 0;
+        border-radius: 22px;
+      }
+
+      .game-shell canvas,
+      .game-card canvas,
+      .diaper-game-wrap canvas,
+      .diaper-doom-wrap canvas,
+      canvas {
+        max-width: 100%;
+      }
+
+      @media (max-width: 820px) {
+        body {
+          overscroll-behavior-x: none;
+          -webkit-text-size-adjust: 100%;
+        }
+
+        .app {
+          display: block !important;
+          min-height: 100dvh;
+          padding: 0 !important;
+        }
+
+        .sidebar {
+          position: sticky !important;
+          top: 0 !important;
+          z-index: 1000 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          min-height: auto !important;
+          height: auto !important;
+          border-radius: 0 0 24px 24px !important;
+          padding: 10px 10px 8px !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          border-top: 0 !important;
+        }
+
+        .logo-button {
+          width: 100% !important;
+          display: flex !important;
+          justify-content: flex-start !important;
+          align-items: center !important;
+          gap: 10px !important;
+          padding: 8px 10px !important;
+          border-radius: 18px !important;
+          min-width: 0 !important;
+        }
+
+        .logo-button img {
+          width: 54px !important;
+          height: 54px !important;
+          min-width: 54px !important;
+          object-fit: contain !important;
+        }
+
+        .logo-button h1 {
+          font-size: 19px !important;
+          line-height: 1.05 !important;
+          margin: 0 !important;
+          white-space: normal !important;
+        }
+
+        .logo-button p {
+          font-size: 11px !important;
+          line-height: 1.2 !important;
+          margin: 2px 0 0 !important;
+        }
+
+        .sidebar nav,
+        nav {
+          display: flex !important;
+          flex-direction: row !important;
+          gap: 8px !important;
+          overflow-x: auto !important;
+          overflow-y: hidden !important;
+          -webkit-overflow-scrolling: touch !important;
+          padding: 8px 2px 4px !important;
+          scroll-snap-type: x proximity;
+          scrollbar-width: none;
+        }
+
+        .sidebar nav::-webkit-scrollbar,
+        nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        nav button {
+          flex: 0 0 auto !important;
+          min-width: 86px !important;
+          max-width: 104px !important;
+          min-height: 72px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 4px !important;
+          padding: 8px 7px !important;
+          border-radius: 18px !important;
+          scroll-snap-align: start;
+          font-size: 11px !important;
+          line-height: 1.12 !important;
+          text-align: center !important;
+          white-space: normal !important;
+        }
+
+        nav button svg {
+          width: 22px !important;
+          height: 22px !important;
+        }
+
+        nav button .mascot-nav-icon {
+          width: 34px !important;
+          height: 34px !important;
+        }
+
+        main,
+        .main-content,
+        .content {
+          width: 100% !important;
+          max-width: 100% !important;
+          padding: 12px !important;
+          margin: 0 !important;
+          min-width: 0 !important;
+        }
+
+        .hero {
+          padding: 18px !important;
+          border-radius: 24px !important;
+          margin-bottom: 14px !important;
+        }
+
+        .hero h2,
+        .room h2 {
+          font-size: 25px !important;
+          line-height: 1.12 !important;
+          word-break: break-word;
+        }
+
+        .room-title-with-art {
+          gap: 10px !important;
+        }
+
+        .room-title-with-art .mascot-nav-icon {
+          width: 48px !important;
+          height: 48px !important;
+        }
+
+        .cards {
+          display: grid !important;
+          grid-template-columns: 1fr !important;
+          gap: 12px !important;
+          width: 100% !important;
+        }
+
+        .feature-card {
+          width: 100% !important;
+          min-width: 0 !important;
+          padding: 16px !important;
+          border-radius: 24px !important;
+          text-align: left !important;
+        }
+
+        .tile-art-icon {
+          width: 62px !important;
+          height: 62px !important;
+          border-radius: 20px !important;
+          margin-bottom: 10px !important;
+        }
+
+        .tile-art-icon .mascot-nav-icon {
+          width: 54px !important;
+          height: 54px !important;
+        }
+
+        .profile,
+        .panel,
+        .bubble,
+        .notice,
+        .auth-card {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          border-radius: 24px !important;
+          padding: 16px !important;
+        }
+
+        .list {
+          max-height: none !important;
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+
+        form,
+        .form {
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+
+        input,
+        textarea,
+        select,
+        button {
+          max-width: 100% !important;
+          font-size: 16px !important;
+        }
+
+        input,
+        textarea,
+        select {
+          width: 100% !important;
+        }
+
+        textarea {
+          min-height: 120px !important;
+        }
+
+        .gallery-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 10px !important;
+        }
+
+        [style*="gridTemplateColumns"],
+        [style*="grid-template-columns"] {
+          grid-template-columns: 1fr !important;
+        }
+
+        [style*="display: grid"] {
+          min-width: 0 !important;
+        }
+
+        [style*="minHeight: 620"],
+        [style*="min-height: 620"] {
+          min-height: auto !important;
+        }
+
+        .social-action-row {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+        }
+
+        .post-meta {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 8px !important;
+        }
+
+        .auth-page {
+          min-height: 100dvh !important;
+          padding: 14px !important;
+          display: grid !important;
+          place-items: center !important;
+        }
+
+        .auth-card {
+          padding: 18px !important;
+        }
+
+        .game-frame,
+        iframe[title*="Diaper"],
+        iframe[title*="Game"] {
+          width: 100% !important;
+          height: min(72vh, 520px) !important;
+          max-height: 72vh !important;
+          border-radius: 22px !important;
+        }
+
+        .diaper-dash-canvas,
+        .games-canvas,
+        canvas {
+          touch-action: manipulation !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        main,
+        .main-content,
+        .content {
+          padding: 10px !important;
+        }
+
+        .logo-button img {
+          width: 46px !important;
+          height: 46px !important;
+          min-width: 46px !important;
+        }
+
+        .logo-button h1 {
+          font-size: 17px !important;
+        }
+
+        .logo-button p {
+          display: none !important;
+        }
+
+        nav button {
+          min-width: 76px !important;
+          max-width: 82px !important;
+          min-height: 66px !important;
+          font-size: 10.5px !important;
+          padding: 7px 5px !important;
+        }
+
+        nav button .mascot-nav-icon {
+          width: 30px !important;
+          height: 30px !important;
+        }
+
+        .hero h2,
+        .room h2 {
+          font-size: 22px !important;
+        }
+
+        .feature-card h3 {
+          font-size: 18px !important;
+        }
+
+        .feature-card p,
+        .muted,
+        p {
+          font-size: 14px;
+        }
+
+        .gallery-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .game-frame,
+        iframe[title*="Diaper"],
+        iframe[title*="Game"] {
+          height: 66vh !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 function AuthGate({ setMember }) {
   const [mode, setMode] = useState('signIn');
   const [displayName, setDisplayName] = useState('Happy Little Bubby');
@@ -7145,6 +7526,7 @@ function AppShell({ member, setMember }) {
     >
       <BubbleThemeStyles theme={bubbleTheme} />
       <SocialBabyPolish />
+      <IphonePortraitFixes />
       <NurseryWorldUpgradeStyles />
       <aside className="sidebar">
         <Logo goHome={() => navigateTo('home')} />
