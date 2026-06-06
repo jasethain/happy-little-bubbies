@@ -61,6 +61,24 @@ function FriendsImageIcon({ size = 20 }) {
 }
 
 
+function FriendsChatImageIcon({ size = 20 }) {
+  return (
+    <img
+      src="/friends-chat-banner.png"
+      alt="Friends Chat"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 6,
+        objectFit: 'cover',
+        flexShrink: 0,
+      }}
+      draggable={false}
+    />
+  );
+}
+
+
 function BabyEmojiIcon({ emoji, size = 20 }) {
   return (
     <span
@@ -110,7 +128,6 @@ const NurseryChatIcon = makeMascotIcon('/image_cf92755a.png', 'Nursery Chat');
 const NurseryFamilyIcon = makeMascotIcon('/image_9d6f08a6.png', 'Nursery Family');
 const MentorFairyIcon = makeMascotIcon('/mentor-fairy.png', 'Mentors');
 const DiaperCopIcon = makeMascotIcon('/diaper-cop.png', 'Diaper Cops');
-const FriendsChatIcon = makeMascotIcon('/friends-chat-banner.png', 'Friends Chat');
 
 
 const baseRooms = [
@@ -119,7 +136,7 @@ const baseRooms = [
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
   { id: 'members', label: 'Nursery Family', icon: NurseryFamilyIcon },
-  { id: 'friendChat', label: 'Friends Chat', icon: FriendsChatIcon },
+  { id: 'friendChat', label: 'Friends Chat', icon: FriendsChatImageIcon },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
   { id: 'mentors', label: 'Mentors', icon: MentorFairyIcon },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
@@ -1422,7 +1439,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     [<FriendsImageIcon size={62} />, 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
     [<NurseryFamilyIcon size={62} />, 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
-    [<FriendsChatIcon size={62} />, 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
+    [<FriendsChatImageIcon size={62} />, 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     [<MentorFairyIcon size={62} />, 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
     [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
@@ -3407,6 +3424,55 @@ function FriendChatRoom({ member }) {
     <section className="room">
       <h2>💬 Friends Chat</h2>
       <p className="muted">Real-time chat threads for accepted friends only.</p>
+
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: 28,
+          marginBottom: 24,
+          minHeight: 220,
+          boxShadow: '0 18px 45px rgba(0,0,0,0.14)',
+          background: '#f5f7fb',
+        }}
+      >
+        <img
+          src="/friends-chat-banner.png"
+          alt="Friends Chat banner"
+          style={{
+            width: '100%',
+            height: 260,
+            objectFit: 'cover',
+            display: 'block',
+          }}
+          draggable={false}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.62))',
+            display: 'flex',
+            alignItems: 'flex-end',
+            padding: 24,
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                color: '#ffffff',
+                margin: 0,
+                fontSize: 38,
+                textShadow: '0 2px 10px rgba(0,0,0,0.35)',
+              }}
+            >
+              Friends Chat
+            </h1>
+          </div>
+        </div>
+      </div>
+
       {status && <p className="error">{status}</p>}
 
       {friends.length === 0 ? (
