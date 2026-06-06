@@ -110,6 +110,7 @@ const NurseryChatIcon = makeMascotIcon('/image_cf92755a.png', 'Nursery Chat');
 const NurseryFamilyIcon = makeMascotIcon('/image_9d6f08a6.png', 'Nursery Family');
 const MentorFairyIcon = makeMascotIcon('/mentor-fairy.png', 'Mentors');
 const DiaperCopIcon = makeMascotIcon('/diaper-cop.png', 'Diaper Cops');
+const FriendsChatIcon = makeMascotIcon('/friends-chat-banner.png', 'Friends Chat');
 
 
 const baseRooms = [
@@ -118,7 +119,7 @@ const baseRooms = [
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
   { id: 'members', label: 'Nursery Family', icon: NurseryFamilyIcon },
-  { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
+  { id: 'friendChat', label: 'Friends Chat', icon: FriendsChatIcon },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
   { id: 'mentors', label: 'Mentors', icon: MentorFairyIcon },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
@@ -1421,7 +1422,7 @@ function HomeRoom({ setRoom, member, counts }) {
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     [<FriendsImageIcon size={62} />, 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
     [<NurseryFamilyIcon size={62} />, 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
-    ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
+    [<FriendsChatIcon size={62} />, 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
     [<MentorFairyIcon size={62} />, 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
     [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
