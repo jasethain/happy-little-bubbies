@@ -2834,9 +2834,9 @@ function FriendsRoom({ member }) {
           overflow: 'hidden',
           borderRadius: 28,
           marginBottom: 24,
-          minHeight: 220,
+          minHeight: 340,
           boxShadow: '0 18px 45px rgba(0,0,0,0.14)',
-          background: '#f5f7fb',
+          background: '#eef6ff',
         }}
       >
         <img
@@ -2844,9 +2844,12 @@ function FriendsRoom({ member }) {
           alt="Friends banner"
           style={{
             width: '100%',
-            height: 260,
-            objectFit: 'cover',
+            height: 'min(420px, 48vw)',
+            minHeight: 320,
+            objectFit: 'contain',
+            objectPosition: 'center center',
             display: 'block',
+            background: '#eef6ff',
           }}
           draggable={false}
         />
@@ -2855,7 +2858,7 @@ function FriendsRoom({ member }) {
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.62))',
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.38))',
             display: 'flex',
             alignItems: 'flex-end',
             padding: 24,
@@ -2866,7 +2869,7 @@ function FriendsRoom({ member }) {
               style={{
                 color: '#ffffff',
                 margin: 0,
-                fontSize: 38,
+                fontSize: 34,
                 textShadow: '0 2px 10px rgba(0,0,0,0.35)',
               }}
             >
