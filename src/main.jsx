@@ -46,7 +46,7 @@ const FIRST_HELPER_EMAIL = 'jctabdl@yahoo.com.au';
 function FriendsImageIcon({ size = 20 }) {
   return (
     <img
-      src="/friends-icon.png"
+      src="/friends-banner.png"
       alt="Friends"
       style={{
         width: size,
@@ -116,7 +116,7 @@ const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
   { id: 'chat', label: 'Nursery Chat', icon: NurseryChatIcon },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
-  { id: 'friends', label: 'Friends', icon: makeBabyIcon('🧸') },
+  { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
   { id: 'members', label: 'Nursery Family', icon: NurseryFamilyIcon },
   { id: 'friendChat', label: 'Friends Chat', icon: makeBabyIcon('💬') },
   { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
@@ -1419,7 +1419,7 @@ function HomeRoom({ setRoom, member, counts }) {
   const cards = [
     [<NurseryChatIcon size={62} />, 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
-    ['👥', 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
+    [<FriendsImageIcon size={62} />, 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
     [<NurseryFamilyIcon size={62} />, 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
     ['💬', 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
