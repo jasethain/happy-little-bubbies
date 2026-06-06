@@ -70,7 +70,9 @@ function FriendsChatImageIcon({ size = 20 }) {
         width: size,
         height: size,
         borderRadius: 6,
-        objectFit: 'cover',
+        objectFit: 'contain',
+        objectPosition: 'center center',
+        background: '#ffffff',
         flexShrink: 0,
       }}
       draggable={false}
@@ -3434,9 +3436,8 @@ function FriendChatRoom({ member }) {
           overflow: 'hidden',
           borderRadius: 28,
           marginBottom: 24,
-          minHeight: 220,
           boxShadow: '0 18px 45px rgba(0,0,0,0.14)',
-          background: '#f5f7fb',
+          background: '#ffffff',
         }}
       >
         <img
@@ -3444,9 +3445,11 @@ function FriendChatRoom({ member }) {
           alt="Friends Chat banner"
           style={{
             width: '100%',
-            height: 260,
-            objectFit: 'cover',
+            height: 'auto',
+            objectFit: 'contain',
+            objectPosition: 'center center',
             display: 'block',
+            background: '#ffffff',
           }}
           draggable={false}
         />
@@ -3454,11 +3457,14 @@ function FriendChatRoom({ member }) {
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.62))',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.58))',
             display: 'flex',
             alignItems: 'flex-end',
             padding: 24,
+            pointerEvents: 'none',
           }}
         >
           <div>
