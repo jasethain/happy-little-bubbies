@@ -452,6 +452,12 @@ const BUBBLE_PROFILE_KEYS = [
   'bio',
   'avatar',
   'photoUrl',
+  'cartoonSkin',
+  'cartoonHair',
+  'cartoonHairStyle',
+  'cartoonEye',
+  'cartoonTop',
+  'cartoonAccessory',
   'favouriteColour',
   'gender',
   'customGender',
@@ -6903,6 +6909,57 @@ function MembersRoom({ member, onPrivateMessageUser }) {
 }
 
 
+
+
+function buildCartoonAvatarDataUrl(options = {}) {
+  const skin = options.skin || '#f4b183';
+  const hair = options.hair || '#c8792a';
+  const hairStyle = options.hairStyle || 'wavy';
+  const eye = options.eye || '#7c4a21';
+  const top = options.top || '#1e3a8a';
+  const accessory = options.accessory || 'coffee';
+  const name = String(options.name || '').trim().slice(0, 10).toUpperCase();
+
+  const hairShape = hairStyle === 'short'
+    ? `<path d="M94 92c6-39 32-59 72-58 44 1 70 26 75 66-31-25-89-27-147-8z" fill="${hair}"/>`
+    : hairStyle === 'silver'
+      ? `<path d="M91 98c16-48 54-73 103-59 29 8 44 29 49 60-35-23-88-24-152-1z" fill="#d8d8d8"/><path d="M132 45c21-17 59-16 84 5-25-4-47 3-84 28z" fill="#f3f4f6"/>`
+      : `<path d="M78 101c10-48 42-75 92-72 48 3 75 32 80 77-29-25-55-37-92-37-35 0-60 10-80 32z" fill="${hair}"/><path d="M74 101c-28 54-14 133 8 183 24 18 54 10 54-18-35-55-37-123-12-174z" fill="${hair}"/>`;
+
+  const accessorySvg = accessory === 'teddy'
+    ? `<g transform="translate(173 223)"><circle cx="30" cy="26" r="24" fill="#b7791f"/><circle cx="11" cy="7" r="9" fill="#b7791f"/><circle cx="49" cy="7" r="9" fill="#b7791f"/><circle cx="30" cy="30" r="10" fill="#f6d7a7"/><circle cx="21" cy="22" r="3" fill="#111827"/><circle cx="39" cy="22" r="3" fill="#111827"/></g>`
+    : accessory === 'duck'
+      ? `<g transform="translate(174 235)"><ellipse cx="35" cy="25" rx="34" ry="22" fill="#facc15"/><circle cx="22" cy="9" r="16" fill="#facc15"/><path d="M5 10h-20l18 10z" fill="#f97316"/><circle cx="18" cy="5" r="3" fill="#111827"/></g>`
+      : `<g transform="translate(183 221)"><rect x="0" y="8" width="42" height="57" rx="9" fill="#f8fafc" stroke="#7c2d12" stroke-width="5"/><rect x="-4" y="0" width="50" height="12" rx="5" fill="#7c2d12"/><rect x="6" y="18" width="30" height="27" rx="4" fill="#c08457"/></g>`;
+
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 360">
+    <defs>
+      <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#dbeafe"/><stop offset="1" stop-color="#fce7f3"/></linearGradient>
+    </defs>
+    <rect width="320" height="360" rx="42" fill="url(#bg)"/>
+    <circle cx="92" cy="78" r="30" fill="#ffffff" opacity=".45"/>
+    <circle cx="238" cy="64" r="20" fill="#ffffff" opacity=".36"/>
+    <path d="M116 213c-31 14-52 49-50 99h188c2-50-19-85-50-99-26 20-62 20-88 0z" fill="${top}"/>
+    <path d="M89 311c8-54 32-82 71-82s63 28 71 82z" fill="#ffffff" opacity=".95"/>
+    <path d="M103 305c4 27 110 27 114 0 4 19-10 39-57 39s-61-20-57-39z" fill="#fff7ed"/>
+    <ellipse cx="160" cy="137" rx="82" ry="88" fill="${skin}"/>
+    ${hairShape}
+    <circle cx="126" cy="143" r="12" fill="#ffffff"/><circle cx="126" cy="143" r="6" fill="${eye}"/><circle cx="124" cy="140" r="2" fill="#ffffff"/>
+    <circle cx="194" cy="143" r="12" fill="#ffffff"/><circle cx="194" cy="143" r="6" fill="${eye}"/><circle cx="192" cy="140" r="2" fill="#ffffff"/>
+    <path d="M137 188c18 17 44 17 62 0" fill="none" stroke="#7f1d1d" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="106" cy="172" r="9" fill="#f9a8d4" opacity=".55"/><circle cx="214" cy="172" r="9" fill="#f9a8d4" opacity=".55"/>
+    <path d="M112 120c12-10 29-10 42-2" stroke="#4b2e1a" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M168 118c14-8 31-8 42 3" stroke="#4b2e1a" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M88 238c-30 13-41 34-31 56 11 23 40 8 55-22z" fill="${skin}"/>
+    <path d="M232 238c30 13 41 34 31 56-11 23-40 8-55-22z" fill="${skin}"/>
+    ${accessorySvg}
+    ${name ? `<text x="160" y="268" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="#ffffff">${name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>` : ''}
+  </svg>`;
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 function ProfileRoom({ member, setMember }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
@@ -6946,6 +7003,12 @@ function ProfileRoom({ member, setMember }) {
   const [displayName, setDisplayName] = useState(member.displayName || '');
   const [bio, setBio] = useState(member.bio || '');
   const [avatar, setAvatar] = useState(member.avatar || '🧸');
+  const [cartoonSkin, setCartoonSkin] = useState(member.cartoonSkin || '#f4b183');
+  const [cartoonHair, setCartoonHair] = useState(member.cartoonHair || '#c8792a');
+  const [cartoonHairStyle, setCartoonHairStyle] = useState(member.cartoonHairStyle || 'wavy');
+  const [cartoonEye, setCartoonEye] = useState(member.cartoonEye || '#7c4a21');
+  const [cartoonTop, setCartoonTop] = useState(member.cartoonTop || '#1e3a8a');
+  const [cartoonAccessory, setCartoonAccessory] = useState(member.cartoonAccessory || 'coffee');
   const [photoUrl, setPhotoUrl] = useState(member.photoUrl || '');
   const [photoUploading, setPhotoUploading] = useState(false);
   const [favouriteColour, setFavouriteColour] = useState(member.favouriteColour || 'Baby Blue');
@@ -7129,6 +7192,12 @@ function ProfileRoom({ member, setMember }) {
         bio: cleanBio,
         avatar,
         photoUrl,
+        cartoonSkin,
+        cartoonHair,
+        cartoonHairStyle,
+        cartoonEye,
+        cartoonTop,
+        cartoonAccessory,
         favouriteColour,
         gender,
         customGender: gender === 'Self-describe' ? customGender.trim() : '',
@@ -7173,6 +7242,21 @@ function ProfileRoom({ member, setMember }) {
   }
 
   const previewTheme = getBubbleTheme(favouriteColour);
+  const cartoonAvatarPreview = buildCartoonAvatarDataUrl({
+    skin: cartoonSkin,
+    hair: cartoonHair,
+    hairStyle: cartoonHairStyle,
+    eye: cartoonEye,
+    top: cartoonTop,
+    accessory: cartoonAccessory,
+    name: displayName,
+  });
+
+  function useCartoonAvatar() {
+    setPhotoUrl(cartoonAvatarPreview);
+    setAvatar('🎨');
+    setStatus('Cartoon avatar created. Click Save My Bubble to keep it.');
+  }
 
   return (
     <section className="room">
@@ -7348,6 +7432,64 @@ function ProfileRoom({ member, setMember }) {
                 {item}
               </button>
             ))}
+          </div>
+
+
+
+          <div
+            style={{
+              background: 'linear-gradient(135deg,#eff6ff,#fff7ed)',
+              borderRadius: 28,
+              padding: 18,
+              border: '2px solid #bfdbfe',
+              boxShadow: '0 14px 34px rgba(30, 58, 138, 0.08)',
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>🎨 Cartoon Avatar Builder</h3>
+            <p className="muted">Create a cute cartoon-style avatar for your Bubble, matching the Friends Chat artwork.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+              <img
+                src={cartoonAvatarPreview}
+                alt="Cartoon avatar preview"
+                style={{
+                  width: 150,
+                  height: 170,
+                  objectFit: 'contain',
+                  borderRadius: 28,
+                  background: '#ffffff',
+                  border: `4px solid ${previewTheme.accent}`,
+                  boxShadow: previewTheme.glow,
+                }}
+              />
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                <label className="muted">Hair style</label>
+                <select value={cartoonHairStyle} onChange={(e) => setCartoonHairStyle(e.target.value)}>
+                  <option value="wavy">Long wavy hair</option>
+                  <option value="short">Short hair</option>
+                  <option value="silver">Silver styled hair</option>
+                </select>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+                  <label className="muted">Skin<br /><input type="color" value={cartoonSkin} onChange={(e) => setCartoonSkin(e.target.value)} /></label>
+                  <label className="muted">Hair<br /><input type="color" value={cartoonHair} onChange={(e) => setCartoonHair(e.target.value)} /></label>
+                  <label className="muted">Eyes<br /><input type="color" value={cartoonEye} onChange={(e) => setCartoonEye(e.target.value)} /></label>
+                  <label className="muted">Top<br /><input type="color" value={cartoonTop} onChange={(e) => setCartoonTop(e.target.value)} /></label>
+                </div>
+
+                <label className="muted">Hold item</label>
+                <select value={cartoonAccessory} onChange={(e) => setCartoonAccessory(e.target.value)}>
+                  <option value="coffee">Coffee cup</option>
+                  <option value="teddy">Teddy bear</option>
+                  <option value="duck">Rubber duck</option>
+                </select>
+
+                <button type="button" className="primary" onClick={useCartoonAvatar}>
+                  Use this cartoon avatar
+                </button>
+              </div>
+            </div>
           </div>
 
           <div
