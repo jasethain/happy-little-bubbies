@@ -1221,6 +1221,16 @@ function IphonePortraitFixes() {
         canvas {
           touch-action: manipulation !important;
         }
+
+        .friend-chat-layout {
+          grid-template-columns: 1fr !important;
+          gap: 12px !important;
+        }
+
+        .friend-chat-picker-panel {
+          padding: 12px !important;
+          border-radius: 22px !important;
+        }
       }
 
       @media (max-width: 480px) {
@@ -3405,25 +3415,67 @@ function FriendChatRoom({ member }) {
         </div>
       ) : (
         <div
+          className="friend-chat-layout"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(210px, 260px) minmax(0, 1fr)',
+            gridTemplateColumns: 'minmax(220px, 300px) minmax(0, 1fr)',
             gap: 18,
             alignItems: 'start',
           }}
         >
-          <div className="feature-card" style={{ padding: 20, alignSelf: 'start' }}>
-            <span>🧸</span>
-            <h3>Friends</h3>
-            <p className="muted" style={{ marginTop: 0 }}>Pick a friend to chat with.</p>
-            {friends.map((friend) => (
-              <FriendButton
-                key={friend.uid}
-                friend={friend}
-                selected={selectedFriend?.uid === friend.uid}
-                onClick={() => setSelectedFriend(friend)}
-              />
-            ))}
+          <div
+            className="friend-chat-picker-panel"
+            style={{
+              padding: 14,
+              alignSelf: 'start',
+              borderRadius: 26,
+              background: 'rgba(255,255,255,.92)',
+              border: '1px solid rgba(191,219,254,.88)',
+              boxShadow: '0 14px 30px rgba(30,58,138,.08)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <span
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 16,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'linear-gradient(135deg,#eff6ff,#fce7f3)',
+                  border: '1px solid rgba(191,219,254,.8)',
+                  boxShadow: '0 8px 18px rgba(30,58,138,.08)',
+                  fontSize: 24,
+                  flexShrink: 0,
+                }}
+              >
+                🧸
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <h3 style={{ margin: 0, fontSize: 18, lineHeight: 1.1 }}>Friends</h3>
+                <p className="muted" style={{ margin: '3px 0 0', fontSize: 13, lineHeight: 1.25 }}>
+                  Pick a chat buddy.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              {friends.map((friend) => (
+                <FriendButton
+                  key={friend.uid}
+                  friend={friend}
+                  selected={selectedFriend?.uid === friend.uid}
+                  onClick={() => setSelectedFriend(friend)}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="feature-card" style={{ minWidth: 0, padding: 24 }}>
@@ -3638,34 +3690,83 @@ function FriendButton({ friend, selected, onClick }) {
   }, [friend.chatId]);
 
   const unread = chat?.unreadBy?.includes(auth.currentUser?.uid);
+  const online = Boolean(presence?.online);
 
   return (
     <button
       type="button"
       onClick={onClick}
+      title={`Chat with ${friend.displayName || 'Friend'}`}
       style={{
         width: '100%',
-        marginBottom: 8,
-        display: 'flex',
-        justifyContent: 'space-between',
+        minHeight: 58,
+        display: 'grid',
+        gridTemplateColumns: unread ? '34px minmax(0, 1fr) auto' : '34px minmax(0, 1fr)',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
         border: selected ? '2px solid #60a5fa' : '1px solid #dbeafe',
-        background: selected ? '#eaf2ff' : '#ffffff',
+        background: selected ? 'linear-gradient(135deg,#eaf2ff,#fdf2f8)' : '#ffffff',
         color: '#1e3a8a',
         borderRadius: 18,
-        padding: '12px 14px',
+        padding: '9px 10px',
         fontWeight: 900,
         cursor: 'pointer',
         textAlign: 'left',
-        boxShadow: selected ? '0 10px 22px rgba(96, 165, 250, 0.18)' : 'none',
+        boxShadow: selected ? '0 10px 22px rgba(96, 165, 250, 0.18)' : '0 6px 14px rgba(30, 58, 138, 0.04)',
       }}
     >
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {presence?.online ? '🟢' : '⚪'} {friend.displayName}
+      <span
+        aria-hidden="true"
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 999,
+          display: 'grid',
+          placeItems: 'center',
+          background: online ? 'linear-gradient(135deg,#86efac,#34d399)' : 'linear-gradient(135deg,#f1f5f9,#e2e8f0)',
+          boxShadow: online ? '0 7px 16px rgba(16,185,129,.22)' : 'inset 0 0 0 1px rgba(148,163,184,.35)',
+        }}
+      />
+
+      <span style={{ minWidth: 0 }}>
+        <span
+          style={{
+            display: 'block',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: 15,
+            lineHeight: 1.15,
+          }}
+        >
+          {friend.displayName}
+        </span>
+        <span
+          style={{
+            display: 'block',
+            marginTop: 2,
+            color: '#64748b',
+            fontSize: 11,
+            lineHeight: 1.1,
+            fontWeight: 800,
+          }}
+        >
+          {online ? 'Online now' : 'Offline'}
+        </span>
       </span>
+
       {unread && (
-        <span style={{ background: '#f472b6', color: '#ffffff', borderRadius: 999, padding: '2px 8px', fontSize: 12 }}>
+        <span
+          style={{
+            background: '#f472b6',
+            color: '#ffffff',
+            borderRadius: 999,
+            padding: '3px 7px',
+            fontSize: 10,
+            lineHeight: 1,
+            fontWeight: 950,
+          }}
+        >
           NEW
         </span>
       )}
