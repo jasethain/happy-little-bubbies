@@ -163,20 +163,18 @@ const DiaperCopIcon = makeMascotIcon('/diaper-cop.png', 'Diaper Cops');
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
+  { id: 'profile', label: 'My Bubble', icon: SingleBubbleIcon },
   { id: 'thoughts', label: 'Thought Bubbles', icon: makeBabyIcon('🫧') },
-  { id: 'chat', label: 'Nursery Chat', icon: NurseryChatIcon },
+  { id: 'friendChat', label: 'Friends Chat', icon: FriendsChatImageIcon },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
+  { id: 'chat', label: 'Nursery Chat', icon: NurseryChatIcon },
   { id: 'members', label: 'Nursery Family', icon: NurseryFamilyIcon },
-  { id: 'friendChat', label: 'Friends Chat', icon: FriendsChatImageIcon },
-  { id: 'notifications', label: 'Little Alerts', icon: makeBabyIcon('🍼') },
-  { id: 'mentors', label: 'Mentors', icon: MentorFairyIcon },
   { id: 'stories', label: 'Bedtime Stories', icon: makeBabyIcon('📖') },
-  { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
-  { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
   { id: 'games', label: 'Games', icon: makeBabyIcon('🎮') },
-  { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
-  { id: 'profile', label: 'My Bubble', icon: SingleBubbleIcon },
+  { id: 'mentors', label: 'Mentors', icon: MentorFairyIcon },
+  { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
+  { id: 'swap', label: 'Toy Box Swap', icon: makeBabyIcon('🎀') },
 ];
 
 function getRooms(member) {
@@ -1585,17 +1583,18 @@ function HomeRoom({ setRoom, member, counts }) {
   const [welcomePhrase] = useState(() => pickWelcomePhrase());
 
   const cards = [
+    [<SingleBubbleIcon size={62} />, 'My Bubble', 'Your profile, thoughts, Little Alerts, and Memory Book all in one place.', 'profile', counts.total],
     ['🫧', 'Thought Bubbles', 'Write private Bubble notes or share public thoughts with the community.', 'thoughts', 0],
-    [<NurseryChatIcon size={62} />, 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
+    [<FriendsChatImageIcon size={62} />, 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     [<FriendsImageIcon size={62} />, 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
+    [<NurseryChatIcon size={62} />, 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     [<NurseryFamilyIcon size={62} />, 'Nursery Family', 'Browse member Bubbles and send friend requests.', 'members', 0],
-    [<FriendsChatImageIcon size={62} />, 'Friends Chat', 'Real-time friend-only chat threads are live.', 'friendChat', counts.friendChat],
-    ['🍼', 'Little Alerts', 'Unread counts, friend requests, and presence.', 'notifications', counts.total],
+    ['📖', 'Bedtime Stories', 'Request stories, read stories, and browse the story corner.', 'stories', 0],
+    ['🎮', 'Games', 'Play Diaper Dash and more little arcade games.', 'games', 0],
     [<MentorFairyIcon size={62} />, 'Mentors', 'Friendly support from trusted community helpers.', 'mentors', 0],
     [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
-    ['🎮', 'Games', 'Play Diaper Dash and more little arcade games.', 'games', 0],
-    ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
+    ['🎀', 'Toy Box Swap', 'Share sweet swaps and community items.', 'swap', 0],
     ['👑', 'Head Helper', 'Helper control room.', 'admin', 0],
   ];
 
@@ -7513,7 +7512,7 @@ function ThoughtBubblesRoom({ member }) {
 }
 
 
-function ProfileRoom({ member, setMember }) {
+function ProfileRoom({ member, setMember, counts }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
   const genderOptions = [
@@ -8472,6 +8471,22 @@ function ProfileRoom({ member, setMember }) {
       </div>
 
       )}
+
+      <div style={{ marginTop: 24 }}>
+        <div className="profile" style={{ marginBottom: 20 }}>
+          <h2 style={{ marginTop: 0 }}>🍼 Little Alerts</h2>
+          <p className="muted">Your hugs, sunshine, friend requests, Secret Little Letters, and friend chat notices now live inside My Bubble.</p>
+        </div>
+        <NotificationsRoom member={member} counts={counts || {}} />
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <div className="profile" style={{ marginBottom: 20 }}>
+          <h2 style={{ marginTop: 0 }}>📔 Memory Book</h2>
+          <p className="muted">Your scrapbook is now part of My Bubble, so your memories stay tucked in with your profile.</p>
+        </div>
+        <MemoryBookRoom member={member} />
+      </div>
     </section>
   );
 }
@@ -8719,16 +8734,14 @@ function AppShell({ member, setMember }) {
         {room === 'friends' && <FriendsRoom member={member} />}
         {room === 'members' && <MembersRoom member={member} onPrivateMessageUser={openPrivateMessage} />}
         {room === 'friendChat' && <FriendChatRoom member={member} />}
-        {room === 'notifications' && <NotificationsRoom member={member} counts={counts} />}
         {room === 'stories' && <StoryCornerRoom member={member} />}
         {room === 'admin' && <AdminConsole member={member} />}
-        {room === 'profile' && <ProfileRoom member={member} setMember={setMember} />}
-        {room === 'memory' && <MemoryBookRoom member={member} />}
+        {room === 'profile' && <ProfileRoom member={member} setMember={setMember} counts={counts} />}
         {room === 'thoughts' && <ThoughtBubblesRoom member={member} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
         {room === 'games' && <GamesRoom />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'games' && room !== 'mentors' && room !== 'memory' && room !== 'thoughts' && <PlaceholderRoom title={active.label} />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'games' && room !== 'mentors' && room !== 'thoughts' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
