@@ -6599,14 +6599,6 @@ function MembersRoom({ member, onPrivateMessageUser }) {
   const [status, setStatus] = useState('');
   const [bubblePhotos, setBubblePhotos] = useState([]);
   const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
-  const [thoughtTitle, setThoughtTitle] = useState('');
-  const [thoughtText, setThoughtText] = useState('');
-  const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
-  const [thoughtVisibility, setThoughtVisibility] = useState('private');
-  const [myThoughts, setMyThoughts] = useState([]);
-  const [thoughtStatus, setThoughtStatus] = useState('');
-  const [savingThought, setSavingThought] = useState(false);
-
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
 
@@ -7391,6 +7383,13 @@ function ProfileRoom({ member, setMember }) {
   const [galleryVisibility, setGalleryVisibility] = useState('public');
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
+  const [thoughtTitle, setThoughtTitle] = useState('');
+  const [thoughtText, setThoughtText] = useState('');
+  const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
+  const [thoughtVisibility, setThoughtVisibility] = useState('private');
+  const [myThoughts, setMyThoughts] = useState([]);
+  const [thoughtStatus, setThoughtStatus] = useState('');
+  const [savingThought, setSavingThought] = useState(false);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
