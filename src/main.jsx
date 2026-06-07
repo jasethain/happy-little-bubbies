@@ -858,7 +858,7 @@ function useNotificationCounts(member) {
       const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment'].includes(alert.type)).length;
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type)).length;
 
       setCounts((prev) => {
         const next = { ...prev, thoughtHugs: unreadThoughtReactions };
@@ -3633,13 +3633,14 @@ function FriendChatRoom({ member }) {
         },
       }, { merge: true });
 
-      await addDoc(collection(db, 'friendChats', selectedFriend.chatId, 'messages'), {
+      const sentMessageRef = await addDoc(collection(db, 'friendChats', selectedFriend.chatId, 'messages'), {
         text: cleanMessage,
         imageUrl: imagePayload.imageUrl || '',
         imageStoragePath: imagePayload.storagePath || '',
         replyToId: replyToFriendChat?.id || '',
         replyToText: replyToFriendChat?.text || '',
         replyToSenderName: replyToFriendChat?.senderName || '',
+        replyToSenderUid: replyToFriendChat?.senderUid || '',
         senderUid: member.uid,
         senderName: member.displayName,
         recipientUid: selectedFriend.uid,
@@ -3647,6 +3648,22 @@ function FriendChatRoom({ member }) {
         createdAt: serverTimestamp(),
         read: false,
       });
+
+      if (replyToFriendChat?.senderUid && replyToFriendChat.senderUid !== member.uid) {
+        await addDoc(collection(db, 'littleAlerts'), {
+          type: 'friend-message-reply',
+          toUid: replyToFriendChat.senderUid,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          chatId: selectedFriend.chatId,
+          messageId: sentMessageRef.id,
+          replyToId: replyToFriendChat.id || '',
+          replyToText: replyToFriendChat.text || '',
+          replyText: cleanMessage || (imagePayload.imageUrl ? '📷 Photo' : 'Message'),
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
 
       setMessage('');
       setReplyToFriendChat(null);
@@ -4206,7 +4223,7 @@ function NotificationsRoom({ member, counts }) {
       const unread = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine'].includes(alert.type));
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type));
       setThoughtAlerts(unread);
     });
     return unsubscribe;
@@ -4235,14 +4252,23 @@ function NotificationsRoom({ member, counts }) {
     }
   }
 
-  const selectedIcon = selectedAlert?.type === 'thought-sunshine' ? '🌟' : '🤗';
-  const selectedTitle = selectedAlert?.type === 'thought-sunshine' ? 'Sunshine Received' : 'Hug Received';
-  const selectedAction = selectedAlert?.type === 'thought-sunshine' ? 'sprinkled sunshine on' : 'hugged';
+  const selectedIsSunshine = selectedAlert?.type === 'thought-sunshine';
+  const selectedIsComment = selectedAlert?.type === 'thought-comment';
+  const selectedIsMessageReply = selectedAlert?.type === 'friend-message-reply';
+  const selectedIcon = selectedIsMessageReply ? '💬' : selectedIsComment ? '💭' : selectedIsSunshine ? '🌟' : '🤗';
+  const selectedTitle = selectedIsMessageReply
+    ? 'Message Reply'
+    : selectedIsComment
+      ? 'Thought Comment'
+      : selectedIsSunshine
+        ? 'Sunshine Received'
+        : 'Hug Received';
+  const selectedAction = selectedIsComment ? 'commented on' : selectedIsSunshine ? 'sprinkled sunshine on' : 'hugged';
 
   return (
     <section className="room">
       <h2>🍼 Little Alerts</h2>
-      <p className="muted">Your unread bubbles, friend requests, chat nudges, hugs, and sunshine.</p>
+      <p className="muted">Your unread bubbles, friend requests, chat nudges, hugs, sunshine, comments, and replies.</p>
 
       {alertStatus && <p className="error">{alertStatus}</p>}
 
@@ -4250,28 +4276,46 @@ function NotificationsRoom({ member, counts }) {
         <div className="profile" style={{ marginBottom: 18, border: '2px solid #bfdbfe' }}>
           <h3>{selectedIcon} {selectedTitle}</h3>
           <p className="muted">
-            {selectedAlert.fromName || 'A bubby'} {selectedAction} your thought.
+            {selectedIsMessageReply
+              ? `${selectedAlert.fromName || 'A bubby'} replied to your message.`
+              : `${selectedAlert.fromName || 'A bubby'} ${selectedAction} your thought.`}
             {selectedAlert.createdAt?.toDate ? ` ${formatDate(selectedAlert.createdAt)}` : ''}
           </p>
 
-          <div className="bubble" style={{ marginTop: 12 }}>
-            <strong>{selectedThought?.title || selectedAlert.thoughtTitle || 'Your Thought'}</strong>
-            <p style={{ whiteSpace: 'pre-wrap' }}>
-              {selectedThought?.text || selectedAlert.thoughtText || 'This thought could not be loaded, but the hug or sunshine was still sent.'}
-            </p>
-            {(selectedThought?.imageUrl || selectedAlert.thoughtImageUrl) && (
-              <ProtectedImage
-                src={selectedThought?.imageUrl || selectedAlert.thoughtImageUrl}
-                alt="Thought Bubble photo"
-                caption="Thought Bubble photo"
-              />
-            )}
-            {selectedThought && (
-              <p className="muted">
-                🤗 {selectedThought.hugCount || 0} Hugs · 🌟 {selectedThought.sunshineCount || 0} Sunshine
+          {selectedIsMessageReply ? (
+            <div className="bubble" style={{ marginTop: 12 }}>
+              <strong>💬 Reply to your message</strong>
+              <p className="muted" style={{ marginBottom: 8 }}>Your message:</p>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{selectedAlert.replyToText || 'Original message'}</p>
+              <p className="muted" style={{ marginBottom: 8 }}>Reply from {selectedAlert.fromName || 'a bubby'}:</p>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{selectedAlert.replyText || 'Reply message'}</p>
+            </div>
+          ) : (
+            <div className="bubble" style={{ marginTop: 12 }}>
+              <strong>{selectedThought?.title || selectedAlert.thoughtTitle || 'Your Thought'}</strong>
+              <p style={{ whiteSpace: 'pre-wrap' }}>
+                {selectedThought?.text || selectedAlert.thoughtText || 'This thought could not be loaded, but the alert was still sent.'}
               </p>
-            )}
-          </div>
+              {selectedIsComment && selectedAlert.commentText && (
+                <div className="bubble" style={{ marginTop: 12, background: '#f8fbff' }}>
+                  <strong>💭 Comment from {selectedAlert.fromName || 'a bubby'}</strong>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{selectedAlert.commentText}</p>
+                </div>
+              )}
+              {(selectedThought?.imageUrl || selectedAlert.thoughtImageUrl) && (
+                <ProtectedImage
+                  src={selectedThought?.imageUrl || selectedAlert.thoughtImageUrl}
+                  alt="Thought Bubble photo"
+                  caption="Thought Bubble photo"
+                />
+              )}
+              {selectedThought && (
+                <p className="muted">
+                  🤗 {selectedThought.hugCount || 0} Hugs · 🌟 {selectedThought.sunshineCount || 0} Sunshine
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -4314,10 +4358,20 @@ function NotificationsRoom({ member, counts }) {
 
         <div className="feature-card">
           <span>🤗</span>
-          <h3>Hugs & Sunshine ({counts.thoughtHugs || 0})</h3>
-          {thoughtAlerts.length === 0 && <p>No new hugs or sunshine on your thoughts.</p>}
+          <h3>Hugs, Sunshine, Comments & Replies ({counts.thoughtHugs || 0})</h3>
+          {thoughtAlerts.length === 0 && <p>No new hugs, sunshine, comments, or message replies.</p>}
           {thoughtAlerts.map((alert) => {
             const isSunshine = alert.type === 'thought-sunshine';
+            const isComment = alert.type === 'thought-comment';
+            const isMessageReply = alert.type === 'friend-message-reply';
+            const icon = isMessageReply ? '💬' : isComment ? '💭' : isSunshine ? '🌟' : '🤗';
+            const actionText = isMessageReply
+              ? 'replied to your message'
+              : isComment
+                ? 'commented on your thought'
+                : isSunshine
+                  ? 'sprinkled sunshine on your thought'
+                  : 'hugged your thought';
             return (
               <button
                 type="button"
@@ -4331,8 +4385,8 @@ function NotificationsRoom({ member, counts }) {
                   cursor: 'pointer',
                 }}
               >
-                <strong>{isSunshine ? '🌟' : '🤗'} {alert.fromName || 'A bubby'} {isSunshine ? 'sprinkled sunshine on' : 'hugged'} your thought</strong>
-                <p>{alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Tap to see the thought.'}</p>
+                <strong>{icon} {alert.fromName || 'A bubby'} {actionText}</strong>
+                <p>{isMessageReply ? (alert.replyText || 'Tap to see the reply.') : alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Tap to see the thought.'}</p>
               </button>
             );
           })}
@@ -8896,7 +8950,7 @@ async function markThoughtReactionAlertsViewed(uid) {
     const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
     const updates = snapshot.docs
       .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
-      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine'].includes(alert.type) && alert.read === false)
+      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type) && alert.read === false)
       .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
         read: true,
         readAt: serverTimestamp(),
