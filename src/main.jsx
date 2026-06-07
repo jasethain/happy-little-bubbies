@@ -1410,8 +1410,8 @@ function IphonePortraitFixes() {
 
 function AuthGate({ setMember }) {
   const [mode, setMode] = useState('signIn');
-  const [displayName, setDisplayName] = useState('Happy Little Bubby');
-  const [email, setEmail] = useState(FIRST_HELPER_EMAIL);
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
