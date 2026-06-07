@@ -858,7 +858,7 @@ function useNotificationCounts(member) {
       const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type)).length;
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type)).length;
 
       setCounts((prev) => {
         const next = { ...prev, thoughtHugs: unreadThoughtReactions };
@@ -991,6 +991,55 @@ function SoftActionButton({ children, onClick, disabled = false, danger = false,
       {children}
     </button>
   );
+}
+
+
+
+const REACTION_DEFINITIONS = {
+  hug: {
+    icon: '🤗',
+    label: 'Hug',
+    actionLabel: 'Send Hug',
+    sentLabel: 'Hug sent',
+    alertTypeThought: 'thought-hug',
+    alertTypePrivate: 'private-message-reaction',
+    alertTypeFriend: 'friend-message-reaction',
+    countKey: 'hugCount',
+    byKey: 'huggedBy',
+    meaning: 'I love that.',
+  },
+  sunshine: {
+    icon: '🌟',
+    label: 'Sunshine',
+    actionLabel: 'Send Sunshine',
+    sentLabel: 'Sunshine sent',
+    alertTypeThought: 'thought-sunshine',
+    alertTypePrivate: 'private-message-reaction',
+    alertTypeFriend: 'friend-message-reaction',
+    countKey: 'sunshineCount',
+    byKey: 'sunshineBy',
+    meaning: 'This made me smile.',
+  },
+  cuddle: {
+    icon: '🧸',
+    label: 'Warm Cuddles',
+    actionLabel: 'Send Warm Cuddles',
+    sentLabel: 'Warm Cuddles sent',
+    alertTypeThought: 'thought-cuddle',
+    alertTypePrivate: 'private-message-reaction',
+    alertTypeFriend: 'friend-message-reaction',
+    countKey: 'cuddleCount',
+    byKey: 'cuddledBy',
+    meaning: "I'm thinking about you and hope things get better.",
+  },
+};
+
+function reactionConfig(reactionType) {
+  return REACTION_DEFINITIONS[reactionType] || REACTION_DEFINITIONS.hug;
+}
+
+function reactionSummary(item = {}) {
+  return `🤗 ${item.hugCount || 0} Hugs · 🌟 ${item.sunshineCount || 0} Sunshine · 🧸 ${item.cuddleCount || 0} Warm Cuddles`;
 }
 
 function SocialBabyPolish() {
@@ -2349,6 +2398,61 @@ function InboxRoom({ member, initialRecipient }) {
     setInboxStatus(`Replying to ${otherName || 'this message'}.`);
   }
 
+  async function sendPrivateMessageReaction(event, msg, reactionType) {
+    event.stopPropagation();
+    if (!msg?.id || !member?.uid) return;
+
+    const config = reactionConfig(reactionType);
+    const messageOwnerUid = msg.fromUid;
+    const messageOwnerName = msg.fromName || 'Happy Little Bubby';
+
+    if (messageOwnerUid === member.uid) {
+      setInboxStatus('You can only react to messages from someone else.');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const messageRef = doc(db, 'privateMessages', msg.id);
+        const messageDoc = await transaction.get(messageRef);
+        if (!messageDoc.exists()) return;
+
+        const data = messageDoc.data();
+        const reactedBy = Array.isArray(data[config.byKey]) ? data[config.byKey] : [];
+
+        if (reactedBy.includes(member.uid)) {
+          throw new Error(`You already sent ${config.label} to this message.`);
+        }
+
+        transaction.update(messageRef, {
+          [config.byKey]: [...reactedBy, member.uid],
+          [config.countKey]: Number(data[config.countKey] || 0) + 1,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      await addDoc(collection(db, 'littleAlerts'), {
+        type: config.alertTypePrivate,
+        reactionType,
+        reactionIcon: config.icon,
+        reactionLabel: config.label,
+        reactionMeaning: config.meaning,
+        toUid: messageOwnerUid,
+        fromUid: member.uid,
+        fromName: member.displayName || 'Happy Little Bubby',
+        messageId: msg.id,
+        messageText: msg.body || msg.lastMessage || '',
+        messageOwnerName,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      setInboxStatus(`${config.label} sent to ${messageOwnerName}.`);
+    } catch (err) {
+      setInboxStatus(err.message || `Could not send ${config.label}.`);
+    }
+  }
+
   async function sendPrivateMessage(event) {
     event.preventDefault();
     const cleanBody = body.trim();
@@ -2376,6 +2480,12 @@ function InboxRoom({ member, initialRecipient }) {
         replyToBody: replyingTo?.body || '',
         read: false,
         deletedFor: [],
+        hugCount: 0,
+        huggedBy: [],
+        sunshineCount: 0,
+        sunshineBy: [],
+        cuddleCount: 0,
+        cuddledBy: [],
         createdAt: serverTimestamp(),
       });
 
@@ -2695,6 +2805,19 @@ function InboxRoom({ member, initialRecipient }) {
                         >
                           ↩️ Reply
                         </button>
+                        {!sentByMe && (
+                          <>
+                            <button type="button" title="I love that." onClick={(event) => sendPrivateMessageReaction(event, msg, 'hug')} style={{ border: 0, borderRadius: 999, padding: '5px 10px', fontWeight: 900, cursor: 'pointer', background: '#eef6ff', color: '#1e3a8a' }}>
+                              🤗 {Array.isArray(msg.huggedBy) && msg.huggedBy.includes(member.uid) ? 'Hug sent' : 'Hug'} ({msg.hugCount || 0})
+                            </button>
+                            <button type="button" title="This made me smile." onClick={(event) => sendPrivateMessageReaction(event, msg, 'sunshine')} style={{ border: 0, borderRadius: 999, padding: '5px 10px', fontWeight: 900, cursor: 'pointer', background: '#eef6ff', color: '#1e3a8a' }}>
+                              🌟 {Array.isArray(msg.sunshineBy) && msg.sunshineBy.includes(member.uid) ? 'Sunshine sent' : 'Sunshine'} ({msg.sunshineCount || 0})
+                            </button>
+                            <button type="button" title="I'm thinking about you and hope things get better." onClick={(event) => sendPrivateMessageReaction(event, msg, 'cuddle')} style={{ border: 0, borderRadius: 999, padding: '5px 10px', fontWeight: 900, cursor: 'pointer', background: '#eef6ff', color: '#1e3a8a' }}>
+                              🧸 {Array.isArray(msg.cuddledBy) && msg.cuddledBy.includes(member.uid) ? 'Warm Cuddles sent' : 'Warm Cuddles'} ({msg.cuddleCount || 0})
+                            </button>
+                          </>
+                        )}
                         <button
                           type="button"
                           onClick={(event) => deletePrivateMessage(event, msg)}
@@ -3540,6 +3663,61 @@ function FriendChatRoom({ member }) {
     setTimeout(() => friendChatTextRef.current?.focus(), 80);
   }
 
+  async function sendFriendMessageReaction(chat, reactionType) {
+    if (!chat?.id || !selectedFriend?.chatId || !member?.uid) return;
+
+    const config = reactionConfig(reactionType);
+    const messageOwnerUid = chat.senderUid;
+    const messageOwnerName = chat.senderName || 'Happy Little Bubby';
+
+    if (messageOwnerUid === member.uid) {
+      setStatus('You can only react to messages from your friend.');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const messageRef = doc(db, 'friendChats', selectedFriend.chatId, 'messages', chat.id);
+        const messageDoc = await transaction.get(messageRef);
+        if (!messageDoc.exists()) return;
+
+        const data = messageDoc.data();
+        const reactedBy = Array.isArray(data[config.byKey]) ? data[config.byKey] : [];
+
+        if (reactedBy.includes(member.uid)) {
+          throw new Error(`You already sent ${config.label} to this message.`);
+        }
+
+        transaction.update(messageRef, {
+          [config.byKey]: [...reactedBy, member.uid],
+          [config.countKey]: Number(data[config.countKey] || 0) + 1,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      await addDoc(collection(db, 'littleAlerts'), {
+        type: config.alertTypeFriend,
+        reactionType,
+        reactionIcon: config.icon,
+        reactionLabel: config.label,
+        reactionMeaning: config.meaning,
+        toUid: messageOwnerUid,
+        fromUid: member.uid,
+        fromName: member.displayName || 'Happy Little Bubby',
+        friendChatId: selectedFriend.chatId,
+        messageId: chat.id,
+        messageText: chat.text || (chat.imageUrl ? '📷 Photo' : chat.callUrl ? 'Call invitation' : 'Message'),
+        messageOwnerName,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      setStatus(`${config.label} sent to ${messageOwnerName}.`);
+    } catch (err) {
+      setStatus(err.message || `Could not send ${config.label}.`);
+    }
+  }
+
   async function startPrivateCall(callType) {
     if (!selectedFriend || sending) return;
 
@@ -3575,6 +3753,12 @@ function FriendChatRoom({ member }) {
         senderName: member.displayName,
         recipientUid: selectedFriend.uid,
         recipientName: selectedFriend.displayName,
+        hugCount: 0,
+        huggedBy: [],
+        sunshineCount: 0,
+        sunshineBy: [],
+        cuddleCount: 0,
+        cuddledBy: [],
         createdAt: serverTimestamp(),
         read: false,
       });
@@ -3931,6 +4115,19 @@ function FriendChatRoom({ member }) {
                       <SoftActionButton onClick={() => replyToFriendMessage(chat)}>
                         ↩️ Reply
                       </SoftActionButton>
+                      {!mine && (
+                        <>
+                          <SoftActionButton title="I love that." onClick={() => sendFriendMessageReaction(chat, 'hug')} disabled={Array.isArray(chat.huggedBy) && chat.huggedBy.includes(member.uid)}>
+                            🤗 {Array.isArray(chat.huggedBy) && chat.huggedBy.includes(member.uid) ? 'Hug sent' : 'Hug'} ({chat.hugCount || 0})
+                          </SoftActionButton>
+                          <SoftActionButton title="This made me smile." onClick={() => sendFriendMessageReaction(chat, 'sunshine')} disabled={Array.isArray(chat.sunshineBy) && chat.sunshineBy.includes(member.uid)}>
+                            🌟 {Array.isArray(chat.sunshineBy) && chat.sunshineBy.includes(member.uid) ? 'Sunshine sent' : 'Sunshine'} ({chat.sunshineCount || 0})
+                          </SoftActionButton>
+                          <SoftActionButton title="I'm thinking about you and hope things get better." onClick={() => sendFriendMessageReaction(chat, 'cuddle')} disabled={Array.isArray(chat.cuddledBy) && chat.cuddledBy.includes(member.uid)}>
+                            🧸 {Array.isArray(chat.cuddledBy) && chat.cuddledBy.includes(member.uid) ? 'Warm Cuddles sent' : 'Warm Cuddles'} ({chat.cuddleCount || 0})
+                          </SoftActionButton>
+                        </>
+                      )}
                       {mine && (
                         <SoftActionButton danger onClick={() => deleteFriendChatMessage(chat)}>
                           🗑️ Delete post
@@ -4223,7 +4420,7 @@ function NotificationsRoom({ member, counts }) {
       const unread = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type));
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type));
       setThoughtAlerts(unread);
     });
     return unsubscribe;
@@ -4252,23 +4449,29 @@ function NotificationsRoom({ member, counts }) {
     }
   }
 
-  const selectedIsSunshine = selectedAlert?.type === 'thought-sunshine';
+  const selectedIsSunshine = selectedAlert?.type === 'thought-sunshine' || selectedAlert?.reactionType === 'sunshine';
+  const selectedIsCuddle = selectedAlert?.type === 'thought-cuddle' || selectedAlert?.reactionType === 'cuddle';
   const selectedIsComment = selectedAlert?.type === 'thought-comment';
   const selectedIsMessageReply = selectedAlert?.type === 'friend-message-reply';
-  const selectedIcon = selectedIsMessageReply ? '💬' : selectedIsComment ? '💭' : selectedIsSunshine ? '🌟' : '🤗';
-  const selectedTitle = selectedIsMessageReply
-    ? 'Message Reply'
-    : selectedIsComment
-      ? 'Thought Comment'
-      : selectedIsSunshine
-        ? 'Sunshine Received'
-        : 'Hug Received';
-  const selectedAction = selectedIsComment ? 'commented on' : selectedIsSunshine ? 'sprinkled sunshine on' : 'hugged';
+  const selectedIsMessageReaction = ['private-message-reaction', 'friend-message-reaction'].includes(selectedAlert?.type);
+  const selectedIcon = selectedIsMessageReply ? '💬' : selectedIsComment ? '💭' : selectedIsCuddle ? '🧸' : selectedIsSunshine ? '🌟' : '🤗';
+  const selectedTitle = selectedIsMessageReaction
+    ? `${selectedAlert?.reactionLabel || 'Reaction'} Received`
+    : selectedIsMessageReply
+      ? 'Message Reply'
+      : selectedIsComment
+        ? 'Thought Comment'
+        : selectedIsCuddle
+          ? 'Warm Cuddles Received'
+          : selectedIsSunshine
+            ? 'Sunshine Received'
+            : 'Hug Received';
+  const selectedAction = selectedIsComment ? 'commented on' : selectedIsCuddle ? 'sent Warm Cuddles to' : selectedIsSunshine ? 'sent Sunshine to' : 'sent a Hug to';
 
   return (
     <section className="room">
       <h2>🍼 Little Alerts</h2>
-      <p className="muted">Your unread bubbles, friend requests, chat nudges, hugs, sunshine, comments, and replies.</p>
+      <p className="muted">Your unread bubbles, friend requests, chat nudges, hugs, sunshine, warm cuddles, comments, and replies.</p>
 
       {alertStatus && <p className="error">{alertStatus}</p>}
 
@@ -4276,13 +4479,21 @@ function NotificationsRoom({ member, counts }) {
         <div className="profile" style={{ marginBottom: 18, border: '2px solid #bfdbfe' }}>
           <h3>{selectedIcon} {selectedTitle}</h3>
           <p className="muted">
-            {selectedIsMessageReply
-              ? `${selectedAlert.fromName || 'A bubby'} replied to your message.`
-              : `${selectedAlert.fromName || 'A bubby'} ${selectedAction} your thought.`}
+            {selectedIsMessageReaction
+              ? `${selectedAlert.fromName || 'A bubby'} sent ${selectedAlert.reactionLabel || 'a reaction'} to your message.`
+              : selectedIsMessageReply
+                ? `${selectedAlert.fromName || 'A bubby'} replied to your message.`
+                : `${selectedAlert.fromName || 'A bubby'} ${selectedAction} your thought.`}
             {selectedAlert.createdAt?.toDate ? ` ${formatDate(selectedAlert.createdAt)}` : ''}
           </p>
 
-          {selectedIsMessageReply ? (
+          {selectedIsMessageReaction ? (
+            <div className="bubble" style={{ marginTop: 12 }}>
+              <strong>{selectedAlert.reactionIcon || selectedIcon} {selectedAlert.reactionLabel || 'Reaction'} to your message</strong>
+              <p className="muted" style={{ marginBottom: 8 }}>{selectedAlert.reactionMeaning || ''}</p>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{selectedAlert.messageText || 'Message'}</p>
+            </div>
+          ) : selectedIsMessageReply ? (
             <div className="bubble" style={{ marginTop: 12 }}>
               <strong>💬 Reply to your message</strong>
               <p className="muted" style={{ marginBottom: 8 }}>Your message:</p>
@@ -4311,7 +4522,7 @@ function NotificationsRoom({ member, counts }) {
               )}
               {selectedThought && (
                 <p className="muted">
-                  🤗 {selectedThought.hugCount || 0} Hugs · 🌟 {selectedThought.sunshineCount || 0} Sunshine
+                  {reactionSummary(selectedThought)}
                 </p>
               )}
             </div>
@@ -4358,20 +4569,26 @@ function NotificationsRoom({ member, counts }) {
 
         <div className="feature-card">
           <span>🤗</span>
-          <h3>Hugs, Sunshine, Comments & Replies ({counts.thoughtHugs || 0})</h3>
-          {thoughtAlerts.length === 0 && <p>No new hugs, sunshine, comments, or message replies.</p>}
+          <h3>Hugs, Sunshine, Warm Cuddles, Comments & Replies ({counts.thoughtHugs || 0})</h3>
+          {thoughtAlerts.length === 0 && <p>No new hugs, sunshine, warm cuddles, comments, or message replies.</p>}
           {thoughtAlerts.map((alert) => {
-            const isSunshine = alert.type === 'thought-sunshine';
+            const isSunshine = alert.type === 'thought-sunshine' || alert.reactionType === 'sunshine';
+            const isCuddle = alert.type === 'thought-cuddle' || alert.reactionType === 'cuddle';
             const isComment = alert.type === 'thought-comment';
             const isMessageReply = alert.type === 'friend-message-reply';
-            const icon = isMessageReply ? '💬' : isComment ? '💭' : isSunshine ? '🌟' : '🤗';
-            const actionText = isMessageReply
-              ? 'replied to your message'
-              : isComment
-                ? 'commented on your thought'
-                : isSunshine
-                  ? 'sprinkled sunshine on your thought'
-                  : 'hugged your thought';
+            const isMessageReaction = ['private-message-reaction', 'friend-message-reaction'].includes(alert.type);
+            const icon = isMessageReply ? '💬' : isComment ? '💭' : isCuddle ? '🧸' : isSunshine ? '🌟' : '🤗';
+            const actionText = isMessageReaction
+              ? `sent ${alert.reactionLabel || 'a reaction'} to your message`
+              : isMessageReply
+                ? 'replied to your message'
+                : isComment
+                  ? 'commented on your thought'
+                  : isCuddle
+                    ? 'sent Warm Cuddles to your thought'
+                    : isSunshine
+                      ? 'sent Sunshine to your thought'
+                      : 'sent a Hug to your thought';
             return (
               <button
                 type="button"
@@ -4386,7 +4603,7 @@ function NotificationsRoom({ member, counts }) {
                 }}
               >
                 <strong>{icon} {alert.fromName || 'A bubby'} {actionText}</strong>
-                <p>{isMessageReply ? (alert.replyText || 'Tap to see the reply.') : alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Tap to see the thought.'}</p>
+                <p>{isMessageReaction ? (alert.messageText || 'Tap to see the message.') : isMessageReply ? (alert.replyText || 'Tap to see the reply.') : alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Tap to see the thought.'}</p>
               </button>
             );
           })}
@@ -7600,11 +7817,7 @@ function ThoughtBubblesRoom({ member }) {
   async function sendThoughtReaction(thought, reactionType) {
     if (!thought?.id || !member?.uid) return;
 
-    const isSunshine = reactionType === 'sunshine';
-    const peopleKey = isSunshine ? 'sunshineBy' : 'huggedBy';
-    const countKey = isSunshine ? 'sunshineCount' : 'hugCount';
-    const alertType = isSunshine ? 'thought-sunshine' : 'thought-hug';
-    const actionName = isSunshine ? 'sunshine' : 'hug';
+    const config = reactionConfig(reactionType);
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -7613,22 +7826,26 @@ function ThoughtBubblesRoom({ member }) {
         if (!thoughtDoc.exists()) return;
 
         const data = thoughtDoc.data();
-        const reactedBy = Array.isArray(data[peopleKey]) ? data[peopleKey] : [];
+        const reactedBy = Array.isArray(data[config.byKey]) ? data[config.byKey] : [];
 
         if (reactedBy.includes(member.uid)) {
-          throw new Error(isSunshine ? 'You already sprinkled sunshine on this thought.' : 'You already sent this thought a hug.');
+          throw new Error(`You already sent ${config.label} to this thought.`);
         }
 
         transaction.update(thoughtRef, {
-          [peopleKey]: [...reactedBy, member.uid],
-          [countKey]: Number(data[countKey] || 0) + 1,
+          [config.byKey]: [...reactedBy, member.uid],
+          [config.countKey]: Number(data[config.countKey] || 0) + 1,
           updatedAt: serverTimestamp(),
         });
       });
 
       if (thought.ownerUid && thought.ownerUid !== member.uid) {
         await addDoc(collection(db, 'littleAlerts'), {
-          type: alertType,
+          type: config.alertTypeThought,
+          reactionType,
+          reactionIcon: config.icon,
+          reactionLabel: config.label,
+          reactionMeaning: config.meaning,
           toUid: thought.ownerUid,
           fromUid: member.uid,
           fromName: member.displayName || 'Happy Little Bubby',
@@ -7641,9 +7858,9 @@ function ThoughtBubblesRoom({ member }) {
         });
       }
 
-      setStatus(isSunshine ? 'Sunshine sprinkled.' : 'Hug sent.');
+      setStatus(`${config.label} sent.`);
     } catch (err) {
-      setStatus(err.message || `Could not send ${actionName}.`);
+      setStatus(err.message || `Could not send ${config.label}.`);
     }
   }
 
@@ -7685,8 +7902,10 @@ function ThoughtBubblesRoom({ member }) {
           const mine = thought.ownerUid === member.uid;
           const alreadyHugged = Array.isArray(thought.huggedBy) && thought.huggedBy.includes(member.uid);
           const alreadySunshine = Array.isArray(thought.sunshineBy) && thought.sunshineBy.includes(member.uid);
-          const reactionTotal = Number(thought.hugCount || 0) + Number(thought.sunshineCount || 0);
+          const alreadyCuddled = Array.isArray(thought.cuddledBy) && thought.cuddledBy.includes(member.uid);
+          const reactionTotal = Number(thought.hugCount || 0) + Number(thought.sunshineCount || 0) + Number(thought.cuddleCount || 0);
           const communityFavourite = Number(thought.hugCount || 0) >= 10 || Number(thought.sunshineCount || 0) >= 10 || reactionTotal >= 15;
+          const communityCuddle = Number(thought.cuddleCount || 0) >= 10;
           const thoughtComments = comments.filter((comment) => comment.thoughtId === thought.id);
           const commentsOpen = openCommentThoughtId === thought.id;
 
@@ -7757,13 +7976,33 @@ function ThoughtBubblesRoom({ member }) {
                 </p>
               )}
 
+              {communityCuddle && (
+                <p style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 12px',
+                  borderRadius: 999,
+                  background: '#fff7ed',
+                  border: '1px solid #fed7aa',
+                  color: '#9a3412',
+                  fontWeight: 950,
+                }}>
+                  🧸 Community Cuddle
+                </p>
+              )}
+
               <div className="social-action-row" style={{ marginTop: 12 }}>
-                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'hug')} disabled={alreadyHugged}>
-                  🤗 {alreadyHugged ? 'Hug sent' : 'Send a Hug'} ({thought.hugCount || 0})
+                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'hug')} disabled={alreadyHugged} title="I love that.">
+                  🤗 {alreadyHugged ? 'Hug sent' : 'Send Hug'} ({thought.hugCount || 0})
                 </SoftActionButton>
 
-                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'sunshine')} disabled={alreadySunshine}>
-                  🌟 {alreadySunshine ? 'Sunshine sprinkled' : 'Sprinkle Sunshine'} ({thought.sunshineCount || 0})
+                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'sunshine')} disabled={alreadySunshine} title="This made me smile.">
+                  🌟 {alreadySunshine ? 'Sunshine sent' : 'Send Sunshine'} ({thought.sunshineCount || 0})
+                </SoftActionButton>
+
+                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'cuddle')} disabled={alreadyCuddled} title="I'm thinking about you and hope things get better.">
+                  🧸 {alreadyCuddled ? 'Warm Cuddles sent' : 'Send Warm Cuddles'} ({thought.cuddleCount || 0})
                 </SoftActionButton>
 
                 <SoftActionButton onClick={() => setOpenCommentThoughtId(commentsOpen ? '' : thought.id)}>
@@ -8096,6 +8335,8 @@ function ProfileRoom({ member, setMember, counts }) {
         huggedBy: [],
         sunshineCount: 0,
         sunshineBy: [],
+        cuddleCount: 0,
+        cuddledBy: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -8409,7 +8650,7 @@ function ProfileRoom({ member, setMember, counts }) {
               )}
 
               <div className="social-action-row">
-                {thought.visibility === 'public' && <span className="muted">🤗 {thought.hugCount || 0} Hugs · 🌟 {thought.sunshineCount || 0} Sunshine</span>}
+                {thought.visibility === 'public' && <span className="muted">{reactionSummary(thought)}</span>}
                 <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
                   🗑️ Delete thought
                 </SoftActionButton>
@@ -8950,7 +9191,7 @@ async function markThoughtReactionAlertsViewed(uid) {
     const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
     const updates = snapshot.docs
       .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
-      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-comment', 'friend-message-reply'].includes(alert.type) && alert.read === false)
+      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type) && alert.read === false)
       .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
         read: true,
         readAt: serverTimestamp(),
