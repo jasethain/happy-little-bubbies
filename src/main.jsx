@@ -106,6 +106,37 @@ function makeBabyIcon(emoji) {
   };
 }
 
+function SingleBubbleIcon({ size = 20 }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        marginRight: 2,
+      }}
+    >
+      <span
+        style={{
+          width: Math.round(size * 0.72),
+          height: Math.round(size * 0.72),
+          borderRadius: '50%',
+          display: 'block',
+          background: 'radial-gradient(circle at 32% 28%, rgba(255,255,255,.98) 0 18%, rgba(219,234,254,.92) 36%, rgba(249,168,212,.52) 72%, rgba(96,165,250,.42) 100%)',
+          border: '1px solid rgba(96,165,250,.55)',
+          boxShadow: 'inset -3px -4px 8px rgba(96,165,250,.22), inset 3px 3px 8px rgba(255,255,255,.9), 0 4px 12px rgba(30,58,138,.12)',
+        }}
+      />
+    </span>
+  );
+}
+
+
 function MascotIcon({ src, alt, size = 34 }) {
   return (
     <img
@@ -145,7 +176,7 @@ const baseRooms = [
   { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
   { id: 'games', label: 'Games', icon: makeBabyIcon('🎮') },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
-  { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
+  { id: 'profile', label: 'My Bubble', icon: SingleBubbleIcon },
 ];
 
 function getRooms(member) {
@@ -4076,6 +4107,13 @@ function NotificationsRoom({ member, counts }) {
             <p style={{ whiteSpace: 'pre-wrap' }}>
               {selectedThought?.text || selectedAlert.thoughtText || 'This thought could not be loaded, but the hug or sunshine was still sent.'}
             </p>
+            {(selectedThought?.imageUrl || selectedAlert.thoughtImageUrl) && (
+              <ProtectedImage
+                src={selectedThought?.imageUrl || selectedAlert.thoughtImageUrl}
+                alt="Thought Bubble photo"
+                caption="Thought Bubble photo"
+              />
+            )}
             {selectedThought && (
               <p className="muted">
                 🤗 {selectedThought.hugCount || 0} Hugs · 🌟 {selectedThought.sunshineCount || 0} Sunshine
@@ -7331,6 +7369,7 @@ function ThoughtBubblesRoom({ member }) {
           thoughtId: thought.id,
           thoughtTitle: thought.title || 'Thought Bubble',
           thoughtText: thought.text || '',
+          thoughtImageUrl: thought.imageUrl || '',
           read: false,
           createdAt: serverTimestamp(),
         });
@@ -7349,6 +7388,7 @@ function ThoughtBubblesRoom({ member }) {
     if (!ok) return;
 
     try {
+      await removeStoredFile(thought.imageStoragePath);
       await deleteDoc(doc(db, 'thoughtBubbles', thought.id));
       setThoughts((current) => current.filter((item) => item.id !== thought.id));
       setStatus('Thought Bubble deleted.');
@@ -7545,6 +7585,7 @@ function ProfileRoom({ member, setMember }) {
   const [thoughtText, setThoughtText] = useState('');
   const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
   const [thoughtVisibility, setThoughtVisibility] = useState('private');
+  const [thoughtPhotoFile, setThoughtPhotoFile] = useState(null);
   const [myThoughts, setMyThoughts] = useState([]);
   const [thoughtStatus, setThoughtStatus] = useState('');
   const [savingThought, setSavingThought] = useState(false);
@@ -7709,14 +7750,19 @@ function ProfileRoom({ member, setMember }) {
     const cleanText = thoughtText.trim();
     const cleanTitle = thoughtTitle.trim();
 
-    if (!cleanText) {
-      setThoughtStatus('Please write something for your Bubble first.');
+    if (!cleanText && !thoughtPhotoFile) {
+      setThoughtStatus('Please write something or add a photo for your Bubble first.');
       return;
     }
 
     setSavingThought(true);
 
     try {
+      let thoughtImagePayload = {};
+      if (thoughtPhotoFile) {
+        thoughtImagePayload = await uploadChatPhoto(thoughtPhotoFile, 'thoughtBubblePhotos', member.uid);
+      }
+
       await addDoc(collection(db, 'thoughtBubbles'), {
         ownerUid: member.uid,
         ownerName: displayName.trim() || member.displayName || 'Happy Little Bubby',
@@ -7725,6 +7771,8 @@ function ProfileRoom({ member, setMember }) {
         ownerLocation: location.trim() || member.location || '',
         title: cleanTitle,
         text: cleanText,
+        imageUrl: thoughtImagePayload.imageUrl || '',
+        imageStoragePath: thoughtImagePayload.storagePath || '',
         mood: thoughtMood,
         visibility: thoughtVisibility,
         hugCount: 0,
@@ -7737,6 +7785,7 @@ function ProfileRoom({ member, setMember }) {
 
       setThoughtTitle('');
       setThoughtText('');
+      setThoughtPhotoFile(null);
       setThoughtVisibility('private');
       setThoughtStatus(thoughtVisibility === 'public' ? 'Thought shared to Thought Bubbles.' : 'Thought saved in My Bubble.');
     } catch (err) {
@@ -7753,6 +7802,7 @@ function ProfileRoom({ member, setMember }) {
     if (!ok) return;
 
     try {
+      await removeStoredFile(thought.imageStoragePath);
       await deleteDoc(doc(db, 'thoughtBubbles', thought.id));
       setMyThoughts((current) => current.filter((item) => item.id !== thought.id));
       setThoughtStatus('Thought deleted.');
@@ -7872,7 +7922,7 @@ function ProfileRoom({ member, setMember }) {
 
   return (
     <section className="room">
-      <h2>🫧 My Bubble</h2>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><SingleBubbleIcon size={36} /> My Bubble</h2>
 
       <div
         className="profile"
@@ -7918,101 +7968,6 @@ function ProfileRoom({ member, setMember }) {
           {mentorProfile?.status === 'Approved' && <span>💙 Approved Mentor</span>}
           {member.role === 'admin' && <span>🛠️ Helper Admin</span>}
         </div>
-      </div>
-
-      <div className="profile" style={{ marginTop: 20 }}>
-        <h3>📷 Bubble Gallery</h3>
-        <p className="muted">Add photos to your Bubble and choose who can see each one.</p>
-
-        <div
-          style={{
-            background: '#f5f7fb',
-            borderRadius: 22,
-            padding: 18,
-            marginBottom: 18,
-          }}
-        >
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setGalleryFile(e.target.files?.[0] || null)}
-          />
-
-          <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-            <label
-              style={{
-                display: 'flex',
-                gap: 10,
-                alignItems: 'center',
-                fontWeight: 900,
-                color: '#1e3a8a',
-              }}
-            >
-              <input
-                type="radio"
-                name="galleryVisibility"
-                value="public"
-                checked={galleryVisibility === 'public'}
-                onChange={(e) => setGalleryVisibility(e.target.value)}
-              />
-              🌍 For everyone to see
-            </label>
-
-            <label
-              style={{
-                display: 'flex',
-                gap: 10,
-                alignItems: 'center',
-                fontWeight: 900,
-                color: '#1e3a8a',
-              }}
-            >
-              <input
-                type="radio"
-                name="galleryVisibility"
-                value="friends"
-                checked={galleryVisibility === 'friends'}
-                onChange={(e) => setGalleryVisibility(e.target.value)}
-              />
-              🧸 For friends eyes only
-            </label>
-          </div>
-
-          <button
-            type="button"
-            className="primary"
-            onClick={uploadGalleryPhoto}
-            disabled={galleryUploading || !galleryFile}
-            style={{ marginTop: 14 }}
-          >
-            {galleryUploading ? 'Uploading...' : 'Upload gallery photo'}
-          </button>
-        </div>
-
-        {galleryPhotos.length === 0 ? (
-          <div className="bubble">
-            <strong>No gallery photos yet</strong>
-            <p>Add your first Bubble Gallery photo above.</p>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 150px))',
-              gap: 14,
-            }}
-          >
-            {galleryPhotos.map((photo) => (
-              <GalleryThumbnail
-                key={photo.id}
-                photo={photo}
-                onOpen={setOpenGalleryPhoto}
-                canRemove
-                onRemove={deleteGalleryPhoto}
-              />
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="profile" style={{ marginTop: 20 }}>
@@ -8369,6 +8324,39 @@ function ProfileRoom({ member, setMember }) {
             style={{ minHeight: 130 }}
           />
 
+          <div
+            style={{
+              background: '#f8fbff',
+              border: '1px solid rgba(191,219,254,.72)',
+              borderRadius: 22,
+              padding: 14,
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <strong style={{ color: '#1e3a8a' }}>📷 Add a photo to this thought</strong>
+            <p className="muted" style={{ margin: 0 }}>
+              Photos stay with this thought. If you share the thought publicly, the photo appears in Thought Bubbles too.
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setThoughtPhotoFile(e.target.files?.[0] || null)}
+            />
+            {thoughtPhotoFile && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="muted">Selected: {thoughtPhotoFile.name}</span>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setThoughtPhotoFile(null)}
+                >
+                  Remove photo
+                </button>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
             <label>
               Mood
@@ -8395,7 +8383,7 @@ function ProfileRoom({ member, setMember }) {
           </div>
 
           <button type="submit" className="primary" disabled={savingThought}>
-            {savingThought ? 'Saving Thought...' : 'Save Thought'}
+            {savingThought ? 'Saving Thought...' : (thoughtVisibility === 'public' ? 'Share Thought' : 'Save Thought')}
           </button>
         </form>
 
@@ -8433,7 +8421,14 @@ function ProfileRoom({ member, setMember }) {
                 </span>
               </div>
 
-              <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>
+              {thought.text && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>}
+              {thought.imageUrl && (
+                <ProtectedImage
+                  src={thought.imageUrl}
+                  alt="My Thought photo"
+                  caption={thought.visibility === 'public' ? 'Shared in Thought Bubbles' : 'My Bubble photo'}
+                />
+              )}
 
               <div className="social-action-row">
                 {thought.visibility === 'public' && <span className="muted">🤗 {thought.hugCount || 0} Hugs · 🌟 {thought.sunshineCount || 0} Sunshine</span>}
@@ -8445,7 +8440,6 @@ function ProfileRoom({ member, setMember }) {
           ))}
         </div>
       </div>
-      <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} canRemove onRemove={deleteGalleryPhoto} />
     </section>
   );
 }
