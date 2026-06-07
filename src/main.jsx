@@ -11,11 +11,11 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
@@ -23,7 +23,6 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
-  deleteUser,
 } from 'firebase/auth';
 import { auth, db, storage } from './firebase';
 import {
@@ -449,6 +448,89 @@ function applyBabyTalk(currentText, setter) {
   if (converted) setter(converted);
 }
 
+function normaliseDisplayNameKey(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function cleanDisplayNameValue(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+async function assertDisplayNameAvailable(displayName, currentUid = '') {
+  const cleanName = cleanDisplayNameValue(displayName);
+  const nameKey = normaliseDisplayNameKey(cleanName);
+
+  if (!cleanName) {
+    throw new Error('Please choose a display name.');
+  }
+
+  if (cleanName.length < 2) {
+    throw new Error('Display name must be at least 2 characters long.');
+  }
+
+  if (cleanName.length > 40) {
+    throw new Error('Display name must be 40 characters or less.');
+  }
+
+  const lockedName = await getDoc(doc(db, 'usernames', nameKey));
+  if (lockedName.exists() && lockedName.data()?.uid !== currentUid) {
+    throw new Error('That display name is already being used. Please choose another one.');
+  }
+
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+  const duplicateUser = usersSnapshot.docs
+    .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+    .find((user) => {
+      const userUid = user.uid || user.id;
+      if (currentUid && userUid === currentUid) return false;
+      return normaliseDisplayNameKey(user.displayName) === nameKey;
+    });
+
+  if (duplicateUser) {
+    throw new Error('That display name is already being used. Please choose another one.');
+  }
+
+  return { cleanName, nameKey };
+}
+
+async function reserveDisplayNameForUser(uid, displayName, previousDisplayName = '') {
+  const cleanName = cleanDisplayNameValue(displayName);
+  const nameKey = normaliseDisplayNameKey(cleanName);
+  const previousKey = normaliseDisplayNameKey(previousDisplayName);
+
+  if (!uid) throw new Error('Could not confirm your account before saving the display name.');
+  if (!cleanName) throw new Error('Please choose a display name.');
+
+  await runTransaction(db, async (transaction) => {
+    const newNameRef = doc(db, 'usernames', nameKey);
+    const newNameDoc = await transaction.get(newNameRef);
+
+    if (newNameDoc.exists() && newNameDoc.data()?.uid !== uid) {
+      throw new Error('That display name is already being used. Please choose another one.');
+    }
+
+    transaction.set(newNameRef, {
+      uid,
+      displayName: cleanName,
+      displayNameLower: nameKey,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    if (previousKey && previousKey !== nameKey) {
+      const oldNameRef = doc(db, 'usernames', previousKey);
+      const oldNameDoc = await transaction.get(oldNameRef);
+      if (oldNameDoc.exists() && oldNameDoc.data()?.uid === uid) {
+        transaction.delete(oldNameRef);
+      }
+    }
+  });
+
+  return { cleanName, nameKey };
+}
+
 const BUBBLE_PROFILE_KEYS = [
   'displayName',
   'bio',
@@ -647,102 +729,6 @@ async function verifyInviteCode(inviteCode) {
   return result.docs[0];
 }
 
-
-function normaliseDisplayName(name) {
-  return String(name || '').trim().replace(/\s+/g, ' ');
-}
-
-function displayNameKeyFor(name) {
-  return normaliseDisplayName(name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function validateDisplayNameOrThrow(displayName) {
-  const cleanName = normaliseDisplayName(displayName);
-  const key = displayNameKeyFor(cleanName);
-
-  if (!cleanName) {
-    throw new Error('Please choose a display name.');
-  }
-
-  if (cleanName.length < 2) {
-    throw new Error('Display name must be at least 2 characters.');
-  }
-
-  if (cleanName.length > 40) {
-    throw new Error('Display name must be 40 characters or less.');
-  }
-
-  if (!key) {
-    throw new Error('Display name must include at least one letter or number.');
-  }
-
-  return { cleanName, key };
-}
-
-async function assertDisplayNameAvailable(displayName, currentUid = '') {
-  const { key } = validateDisplayNameOrThrow(displayName);
-  const usernameDoc = await getDoc(doc(db, 'usernames', key));
-
-  if (usernameDoc.exists()) {
-    const ownerUid = usernameDoc.data()?.uid || '';
-    if (ownerUid && ownerUid !== currentUid) {
-      throw new Error('That display name is already being used. Please choose another one.');
-    }
-  }
-
-  const existingUsers = await getDocs(
-    query(collection(db, 'users'), where('displayNameKey', '==', key), limit(1))
-  );
-
-  if (!existingUsers.empty) {
-    const ownerUid = existingUsers.docs[0].data()?.uid || existingUsers.docs[0].id;
-    if (ownerUid && ownerUid !== currentUid) {
-      throw new Error('That display name is already being used. Please choose another one.');
-    }
-  }
-
-  return key;
-}
-
-async function reserveDisplayNameForUser(displayName, uid, email = '', oldDisplayNameKey = '') {
-  const { cleanName, key } = validateDisplayNameOrThrow(displayName);
-  const usernameRef = doc(db, 'usernames', key);
-  const oldUsernameRef = oldDisplayNameKey && oldDisplayNameKey !== key ? doc(db, 'usernames', oldDisplayNameKey) : null;
-
-  await runTransaction(db, async (transaction) => {
-    const usernameSnapshot = await transaction.get(usernameRef);
-
-    if (usernameSnapshot.exists()) {
-      const ownerUid = usernameSnapshot.data()?.uid || '';
-      if (ownerUid && ownerUid !== uid) {
-        throw new Error('That display name is already being used. Please choose another one.');
-      }
-    }
-
-    transaction.set(usernameRef, {
-      uid,
-      email: email || '',
-      displayName: cleanName,
-      displayNameLower: cleanName.toLowerCase(),
-      displayNameKey: key,
-      updatedAt: serverTimestamp(),
-      createdAt: usernameSnapshot.exists() ? (usernameSnapshot.data()?.createdAt || serverTimestamp()) : serverTimestamp(),
-    }, { merge: true });
-
-    if (oldUsernameRef) {
-      const oldSnapshot = await transaction.get(oldUsernameRef);
-      if (oldSnapshot.exists() && oldSnapshot.data()?.uid === uid) {
-        transaction.delete(oldUsernameRef);
-      }
-    }
-  });
-
-  return { cleanName, key };
-}
-
 function usePresence(member) {
   useEffect(() => {
     if (!member?.uid) return;
@@ -861,8 +847,7 @@ async function initialiseFirestoreCollections(member) {
     uid: member.uid,
     email: member.email,
     displayName: member.displayName,
-    displayNameLower: normaliseDisplayName(member.displayName).toLowerCase(),
-    displayNameKey: displayNameKeyFor(member.displayName),
+    displayNameLower: normaliseDisplayNameKey(member.displayName),
     role: member.role,
     status: member.status,
     badges: member.badges || [],
@@ -1437,8 +1422,6 @@ function AuthGate({ setMember }) {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { cleanName: cleanDisplayName, key: requestedDisplayNameKey } = validateDisplayNameOrThrow(displayName);
-      await assertDisplayNameAvailable(cleanDisplayName);
       const usersAlreadyExist = await hasAnyUsers();
 
       let role = 'member';
@@ -1455,26 +1438,18 @@ function AuthGate({ setMember }) {
         if (!inviteDoc) throw new Error('Invite code is invalid, already used, or not approved.');
       }
 
+      const { cleanName: cleanDisplayName, nameKey: displayNameLower } = await assertDisplayNameAvailable(displayName);
+
       const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = credential.user;
 
-      try {
-        await reserveDisplayNameForUser(cleanDisplayName, user.uid, cleanEmail);
-      } catch (reservationError) {
-        try {
-          await deleteUser(user);
-        } catch (deleteError) {
-          console.warn('Could not remove newly created auth user after display name reservation failed:', deleteError);
-        }
-        throw reservationError;
-      }
+      await reserveDisplayNameForUser(user.uid, cleanDisplayName);
 
       const profile = {
         uid: user.uid,
         email: cleanEmail,
         displayName: cleanDisplayName,
-        displayNameLower: cleanDisplayName.toLowerCase(),
-        displayNameKey: requestedDisplayNameKey,
+        displayNameLower,
         role,
         badges,
         status,
@@ -7387,7 +7362,7 @@ function ProfileRoom({ member, setMember }) {
     event.preventDefault();
     setStatus('');
 
-    const cleanName = normaliseDisplayName(displayName);
+    const cleanName = displayName.trim();
     const cleanBio = bio.trim();
     const cleanAge = age.trim();
     const cleanBiologicalAge = biologicalAge.trim();
@@ -7401,16 +7376,14 @@ function ProfileRoom({ member, setMember }) {
     setSaving(true);
 
     try {
-      const accountEmail = member.email || auth.currentUser?.email || '';
-      const previousDisplayNameKey = member.displayNameKey || displayNameKeyFor(member.displayName || '');
-      const { key: nextDisplayNameKey } = await reserveDisplayNameForUser(cleanName, member.uid, accountEmail, previousDisplayNameKey);
+      const { nameKey: displayNameLower } = await assertDisplayNameAvailable(cleanName, member.uid);
+      await reserveDisplayNameForUser(member.uid, cleanName, member.displayName);
 
       const accountUpdate = {
         uid: member.uid,
-        email: accountEmail,
+        email: member.email || auth.currentUser?.email || '',
         displayName: cleanName,
-        displayNameLower: cleanName.toLowerCase(),
-        displayNameKey: nextDisplayNameKey,
+        displayNameLower,
         role: member.role || 'member',
         status: member.status || 'approved',
         approved: member.approved === true || member.status === 'approved',
@@ -7421,8 +7394,7 @@ function ProfileRoom({ member, setMember }) {
       const bubbleProfileUpdate = {
         uid: member.uid,
         displayName: cleanName,
-        displayNameLower: cleanName.toLowerCase(),
-        displayNameKey: nextDisplayNameKey,
+        displayNameLower,
         bio: cleanBio,
         age: cleanAge,
         biologicalAge: cleanBiologicalAge,
@@ -7454,8 +7426,6 @@ function ProfileRoom({ member, setMember }) {
       await setDoc(doc(db, 'presence', member.uid), {
         uid: member.uid,
         displayName: cleanName,
-        displayNameLower: cleanName.toLowerCase(),
-        displayNameKey: nextDisplayNameKey,
         avatar,
         photoUrl,
         lastSeen: serverTimestamp(),
@@ -7468,8 +7438,6 @@ function ProfileRoom({ member, setMember }) {
         ...bubbleProfileUpdate,
         id: member.uid,
         displayName: cleanName,
-        displayNameLower: cleanName.toLowerCase(),
-        displayNameKey: nextDisplayNameKey,
       };
 
       setMember(localProfile);
