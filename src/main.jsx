@@ -859,7 +859,7 @@ function useNotificationCounts(member) {
       const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type)).length;
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type)).length;
 
       setCounts((prev) => {
         const next = { ...prev, thoughtHugs: unreadThoughtReactions };
@@ -949,6 +949,31 @@ async function notifyAdminNewMember(profile) {
     });
   } catch (err) {
     console.warn('New member email notification could not be queued:', err);
+  }
+
+  try {
+    const usersSnapshot = await getDocs(collection(db, 'users'));
+    const adminUsers = usersSnapshot.docs
+      .map((userDoc) => ({ id: userDoc.id, ...userDoc.data() }))
+      .filter((user) => user.role === 'admin')
+      .filter((user) => (user.uid || user.id) !== profile.uid);
+
+    await Promise.all(adminUsers.map((admin) => addDoc(collection(db, 'littleAlerts'), {
+      toUid: admin.uid || admin.id,
+      toName: admin.displayName || 'Head Helper',
+      fromUid: profile.uid,
+      fromName: profile.displayName || 'New Bubby',
+      type: 'new-member-joined',
+      title: '🐣 New bubby joined',
+      message: `${profile.displayName || 'A new bubby'} has joined Happy Little Bubbies.`,
+      memberUid: profile.uid,
+      memberName: profile.displayName || '',
+      memberEmail: profile.email || '',
+      read: false,
+      createdAt: serverTimestamp(),
+    })));
+  } catch (err) {
+    console.warn('New member Little Alert could not be created:', err);
   }
 }
 
@@ -1041,6 +1066,14 @@ function reactionConfig(reactionType) {
 
 function reactionSummary(item = {}) {
   return `🤗 ${item.hugCount || 0} Hugs · 🌟 ${item.sunshineCount || 0} Sunshine · 🧸 ${item.cuddleCount || 0} Warm Cuddles`;
+}
+
+function alertText(alert = {}) {
+  if (alert.title && alert.message) return `${alert.title} ${alert.message}`;
+  if (alert.type === 'new-member-joined') {
+    return `🐣 ${alert.memberName || alert.fromName || 'A new bubby'} joined Happy Little Bubbies.`;
+  }
+  return alert.message || alert.title || 'New Little Alert';
 }
 
 function SocialBabyPolish() {
@@ -4533,7 +4566,7 @@ function NotificationsRoom({ member, counts }) {
       const unread = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type));
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type));
       setThoughtAlerts(unread);
     });
     return unsubscribe;
@@ -9304,7 +9337,7 @@ async function markThoughtReactionAlertsViewed(uid) {
     const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
     const updates = snapshot.docs
       .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
-      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction'].includes(alert.type) && alert.read === false)
+      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type) && alert.read === false)
       .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
         read: true,
         readAt: serverTimestamp(),
