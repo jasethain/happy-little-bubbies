@@ -6,14 +6,6 @@ service cloud.firestore {
     function isAdmin() { return signedIn() && myUserDoc().data.role in ['admin', 'helperBubby']; }
     function isApproved() { return signedIn() && myUserDoc().data.status in ['approved', 'active']; }
 
-
-    match /usernames/{usernameId} {
-      allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-    }
-
     match /users/{userId} {
       allow create: if signedIn() && request.auth.uid == userId;
       allow read: if isApproved() || request.auth.uid == userId || isAdmin();
