@@ -133,6 +133,7 @@ const DiaperCopIcon = makeMascotIcon('/diaper-cop.png', 'Diaper Cops');
 
 const baseRooms = [
   { id: 'home', label: 'Playroom', icon: makeBabyIcon('🏡') },
+  { id: 'thoughts', label: 'Thought Bubbles', icon: makeBabyIcon('🫧') },
   { id: 'chat', label: 'Nursery Chat', icon: NurseryChatIcon },
   { id: 'inbox', label: 'Secret Little Letters', icon: makeBabyIcon('💌') },
   { id: 'friends', label: 'Friends', icon: FriendsImageIcon },
@@ -145,7 +146,6 @@ const baseRooms = [
   { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
   { id: 'games', label: 'Games', icon: makeBabyIcon('🎮') },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
-  { id: 'thoughts', label: 'Thought Bubbles', icon: makeBabyIcon('🫧') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
@@ -773,6 +773,7 @@ function useNotificationCounts(member) {
     inbox: 0,
     friendRequests: 0,
     friendChat: 0,
+    thoughtHugs: 0,
     total: 0,
   });
 
@@ -789,7 +790,7 @@ function useNotificationCounts(member) {
 
       setCounts((prev) => {
         const next = { ...prev, inbox: unreadInbox };
-        next.total = next.inbox + next.friendRequests + next.friendChat;
+        next.total = next.inbox + next.friendRequests + next.friendChat + (next.thoughtHugs || 0);
         return next;
       });
     }));
@@ -803,7 +804,7 @@ function useNotificationCounts(member) {
 
       setCounts((prev) => {
         const next = { ...prev, friendRequests: incomingRequests };
-        next.total = next.inbox + next.friendRequests + next.friendChat;
+        next.total = next.inbox + next.friendRequests + next.friendChat + (next.thoughtHugs || 0);
         return next;
       });
     }));
@@ -817,7 +818,22 @@ function useNotificationCounts(member) {
 
       setCounts((prev) => {
         const next = { ...prev, friendChat: unreadChatThreads };
-        next.total = next.inbox + next.friendRequests + next.friendChat;
+        next.total = next.inbox + next.friendRequests + next.friendChat + (next.thoughtHugs || 0);
+        return next;
+      });
+    }));
+
+
+
+    const alertsQuery = query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc'));
+    unsubscribers.push(onSnapshot(alertsQuery, (snapshot) => {
+      const unreadThoughtHugs = snapshot.docs
+        .map((item) => item.data())
+        .filter((alert) => alert.toUid === member.uid && alert.read === false && alert.type === 'thought-hug').length;
+
+      setCounts((prev) => {
+        const next = { ...prev, thoughtHugs: unreadThoughtHugs };
+        next.total = next.inbox + next.friendRequests + next.friendChat + next.thoughtHugs;
         return next;
       });
     }));
@@ -883,6 +899,7 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'mentorProfiles', 'setup-mentor-profile'), setupDoc, { merge: true });
   await setDoc(doc(db, 'mentorRequests', 'setup-mentor-request'), setupDoc, { merge: true });
   await setDoc(doc(db, 'thoughtBubbles', 'setup-thought-bubble'), setupDoc, { merge: true });
+  await setDoc(doc(db, 'littleAlerts', 'setup-little-alert'), setupDoc, { merge: true });
 }
 
 
@@ -1537,6 +1554,7 @@ function HomeRoom({ setRoom, member, counts }) {
   const [welcomePhrase] = useState(() => pickWelcomePhrase());
 
   const cards = [
+    ['🫧', 'Thought Bubbles', 'Write private Bubble notes or share public thoughts with the community.', 'thoughts', 0],
     [<NurseryChatIcon size={62} />, 'Nursery Chat', 'Real-time nursery chat is live.', 'chat', 0],
     ['💌', 'Secret Little Letters', 'Private member messages are live.', 'inbox', counts.inbox],
     [<FriendsImageIcon size={62} />, 'Friends', 'Friend requests and friends list are live.', 'friends', counts.friendRequests],
@@ -1547,7 +1565,6 @@ function HomeRoom({ setRoom, member, counts }) {
     [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
     ['🎮', 'Games', 'Play Diaper Dash and more little arcade games.', 'games', 0],
     ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
-    ['🫧', 'Thought Bubbles', 'Write private Bubble notes or share public thoughts with the community.', 'thoughts', 0],
     ['👑', 'Head Helper', 'Helper control room.', 'admin', 0],
   ];
 
@@ -3955,6 +3972,7 @@ function NotificationsRoom({ member, counts }) {
   const [requests, setRequests] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState([]);
   const [unreadChats, setUnreadChats] = useState([]);
+  const [thoughtHugs, setThoughtHugs] = useState([]);
 
   useEffect(() => {
     markLittleAlertsViewed(member.uid);
@@ -3990,6 +4008,17 @@ function NotificationsRoom({ member, counts }) {
         .filter((chat) => chat.participants?.includes(member.uid))
         .filter((chat) => (chat.unreadBy || []).includes(member.uid));
       setUnreadChats(unread);
+    });
+    return unsubscribe;
+  }, [member.uid]);
+
+  useEffect(() => {
+    const alertsQuery = query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
+      const unread = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((alert) => alert.toUid === member.uid && alert.type === 'thought-hug' && alert.read === false);
+      setThoughtHugs(unread);
     });
     return unsubscribe;
   }, [member.uid]);
@@ -4032,6 +4061,18 @@ function NotificationsRoom({ member, counts }) {
             <div className="bubble" key={chat.chatId}>
               <strong>New friend chat</strong>
               <p>{chat.lastMessage}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="feature-card">
+          <span>🫧</span>
+          <h3>Thought Hugs ({counts.thoughtHugs || 0})</h3>
+          {thoughtHugs.length === 0 && <p>No new hugs on your thoughts.</p>}
+          {thoughtHugs.map((alert) => (
+            <div className="bubble" key={alert.id}>
+              <strong>❤️ Hug from {alert.fromName || 'a bubby'}</strong>
+              <p>{alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Someone sent your Thought Bubble a hug.'}</p>
             </div>
           ))}
         </div>
@@ -7204,6 +7245,19 @@ function ThoughtBubblesRoom({ member }) {
         });
       });
 
+      if (thought.ownerUid && thought.ownerUid !== member.uid) {
+        await addDoc(collection(db, 'littleAlerts'), {
+          type: 'thought-hug',
+          toUid: thought.ownerUid,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          thoughtId: thought.id,
+          thoughtTitle: thought.title || 'Thought Bubble',
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
       setStatus('Hug sent.');
     } catch (err) {
       setStatus(err.message || 'Could not send a hug.');
@@ -8391,11 +8445,31 @@ async function markFriendRequestsViewed(uid) {
   }
 }
 
+async function markThoughtHugAlertsViewed(uid) {
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
+    const updates = snapshot.docs
+      .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
+      .filter((alert) => alert.toUid === uid && alert.type === 'thought-hug' && alert.read === false)
+      .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
+        read: true,
+        readAt: serverTimestamp(),
+      }));
+
+    await Promise.all(updates);
+  } catch (err) {
+    console.warn('Could not clear thought hug alerts:', err);
+  }
+}
+
 async function markLittleAlertsViewed(uid) {
   await Promise.all([
     markPrivateInboxViewed(uid),
     markFriendChatsViewed(uid),
     markFriendRequestsViewed(uid),
+    markThoughtHugAlertsViewed(uid),
   ]);
 }
 
