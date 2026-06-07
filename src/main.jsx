@@ -1044,6 +1044,31 @@ function reactionSummary(item = {}) {
 }
 
 function SocialBabyPolish() {
+  useEffect(() => {
+    const fontId = 'hlb-comic-neue-font';
+    if (!document.getElementById(fontId)) {
+      const preconnectGoogle = document.createElement('link');
+      preconnectGoogle.rel = 'preconnect';
+      preconnectGoogle.href = 'https://fonts.googleapis.com';
+      document.head.appendChild(preconnectGoogle);
+
+      const preconnectGstatic = document.createElement('link');
+      preconnectGstatic.rel = 'preconnect';
+      preconnectGstatic.href = 'https://fonts.gstatic.com';
+      preconnectGstatic.crossOrigin = 'anonymous';
+      document.head.appendChild(preconnectGstatic);
+
+      const fontLink = document.createElement('link');
+      fontLink.id = fontId;
+      fontLink.rel = 'stylesheet';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap';
+      document.head.appendChild(fontLink);
+    }
+
+    document.documentElement.style.fontFamily = "'Comic Neue', 'Chalkboard SE', 'Comic Sans MS', cursive";
+    document.body.style.fontFamily = "'Comic Neue', 'Chalkboard SE', 'Comic Sans MS', cursive";
+  }, []);
+
   return (
     <style>{`
       :root {
@@ -1053,8 +1078,13 @@ function SocialBabyPolish() {
         --social-line:rgba(191,219,254,.78);
         --social-card:rgba(255,255,255,.92);
       }
-      @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap');
-      * { box-sizing:border-box; font-family:'Comic Neue',cursive !important; }
+      * {
+        box-sizing:border-box;
+        font-family:'Comic Neue','Chalkboard SE','Comic Sans MS',cursive !important;
+      }
+      html, body, #root, .app, main, section, div, p, span, button, input, textarea, select, label, h1, h2, h3, h4, h5, h6, a, strong, small {
+        font-family:'Comic Neue','Chalkboard SE','Comic Sans MS',cursive !important;
+      }
       body { background:linear-gradient(135deg,#fff1f7 0%,#eff6ff 48%,#fff7ed 100%); }
       .app { min-height:100vh; }
       .sidebar, .panel, .profile, .feature-card, .bubble, .auth-card, .notice {
