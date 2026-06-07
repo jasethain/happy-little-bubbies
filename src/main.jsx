@@ -827,12 +827,13 @@ function useNotificationCounts(member) {
 
     const alertsQuery = query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc'));
     unsubscribers.push(onSnapshot(alertsQuery, (snapshot) => {
-      const unreadThoughtHugs = snapshot.docs
+      const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
-        .filter((alert) => alert.toUid === member.uid && alert.read === false && alert.type === 'thought-hug').length;
+        .filter((alert) => alert.toUid === member.uid && alert.read === false)
+        .filter((alert) => ['thought-hug', 'thought-sunshine'].includes(alert.type)).length;
 
       setCounts((prev) => {
-        const next = { ...prev, thoughtHugs: unreadThoughtHugs };
+        const next = { ...prev, thoughtHugs: unreadThoughtReactions };
         next.total = next.inbox + next.friendRequests + next.friendChat + next.thoughtHugs;
         return next;
       });
@@ -3972,10 +3973,15 @@ function NotificationsRoom({ member, counts }) {
   const [requests, setRequests] = useState([]);
   const [unreadMessages, setUnreadMessages] = useState([]);
   const [unreadChats, setUnreadChats] = useState([]);
-  const [thoughtHugs, setThoughtHugs] = useState([]);
+  const [thoughtAlerts, setThoughtAlerts] = useState([]);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [selectedThought, setSelectedThought] = useState(null);
+  const [alertStatus, setAlertStatus] = useState('');
 
   useEffect(() => {
-    markLittleAlertsViewed(member.uid);
+    markPrivateInboxViewed(member.uid);
+    markFriendChatsViewed(member.uid);
+    markFriendRequestsViewed(member.uid);
   }, [member.uid]);
 
   useEffect(() => {
@@ -4017,16 +4023,68 @@ function NotificationsRoom({ member, counts }) {
     const unsubscribe = onSnapshot(alertsQuery, (snapshot) => {
       const unread = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
-        .filter((alert) => alert.toUid === member.uid && alert.type === 'thought-hug' && alert.read === false);
-      setThoughtHugs(unread);
+        .filter((alert) => alert.toUid === member.uid && alert.read === false)
+        .filter((alert) => ['thought-hug', 'thought-sunshine'].includes(alert.type));
+      setThoughtAlerts(unread);
     });
     return unsubscribe;
   }, [member.uid]);
 
+  async function openThoughtAlert(alert) {
+    if (!alert?.id) return;
+    setAlertStatus('');
+    setSelectedAlert(alert);
+    setSelectedThought(null);
+
+    try {
+      if (alert.thoughtId) {
+        const thoughtSnap = await getDoc(doc(db, 'thoughtBubbles', alert.thoughtId));
+        if (thoughtSnap.exists()) {
+          setSelectedThought({ id: thoughtSnap.id, ...thoughtSnap.data() });
+        }
+      }
+
+      await updateDoc(doc(db, 'littleAlerts', alert.id), {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+    } catch (err) {
+      setAlertStatus(err.message || 'Could not open this Little Alert.');
+    }
+  }
+
+  const selectedIcon = selectedAlert?.type === 'thought-sunshine' ? '🌟' : '🤗';
+  const selectedTitle = selectedAlert?.type === 'thought-sunshine' ? 'Sunshine Received' : 'Hug Received';
+  const selectedAction = selectedAlert?.type === 'thought-sunshine' ? 'sprinkled sunshine on' : 'hugged';
+
   return (
     <section className="room">
       <h2>🍼 Little Alerts</h2>
-      <p className="muted">Your unread bubbles, friend requests, and chat nudges.</p>
+      <p className="muted">Your unread bubbles, friend requests, chat nudges, hugs, and sunshine.</p>
+
+      {alertStatus && <p className="error">{alertStatus}</p>}
+
+      {selectedAlert && (
+        <div className="profile" style={{ marginBottom: 18, border: '2px solid #bfdbfe' }}>
+          <h3>{selectedIcon} {selectedTitle}</h3>
+          <p className="muted">
+            {selectedAlert.fromName || 'A bubby'} {selectedAction} your thought.
+            {selectedAlert.createdAt?.toDate ? ` ${formatDate(selectedAlert.createdAt)}` : ''}
+          </p>
+
+          <div className="bubble" style={{ marginTop: 12 }}>
+            <strong>{selectedThought?.title || selectedAlert.thoughtTitle || 'Your Thought'}</strong>
+            <p style={{ whiteSpace: 'pre-wrap' }}>
+              {selectedThought?.text || selectedAlert.thoughtText || 'This thought could not be loaded, but the hug or sunshine was still sent.'}
+            </p>
+            {selectedThought && (
+              <p className="muted">
+                🤗 {selectedThought.hugCount || 0} Hugs · 🌟 {selectedThought.sunshineCount || 0} Sunshine
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="cards">
         <div className="feature-card">
@@ -4066,15 +4124,29 @@ function NotificationsRoom({ member, counts }) {
         </div>
 
         <div className="feature-card">
-          <span>🫧</span>
-          <h3>Thought Hugs ({counts.thoughtHugs || 0})</h3>
-          {thoughtHugs.length === 0 && <p>No new hugs on your thoughts.</p>}
-          {thoughtHugs.map((alert) => (
-            <div className="bubble" key={alert.id}>
-              <strong>❤️ Hug from {alert.fromName || 'a bubby'}</strong>
-              <p>{alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Someone sent your Thought Bubble a hug.'}</p>
-            </div>
-          ))}
+          <span>🤗</span>
+          <h3>Hugs & Sunshine ({counts.thoughtHugs || 0})</h3>
+          {thoughtAlerts.length === 0 && <p>No new hugs or sunshine on your thoughts.</p>}
+          {thoughtAlerts.map((alert) => {
+            const isSunshine = alert.type === 'thought-sunshine';
+            return (
+              <button
+                type="button"
+                className="bubble"
+                key={alert.id}
+                onClick={() => openThoughtAlert(alert)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  border: '1px solid rgba(191,219,254,.86)',
+                  cursor: 'pointer',
+                }}
+              >
+                <strong>{isSunshine ? '🌟' : '🤗'} {alert.fromName || 'A bubby'} {isSunshine ? 'sprinkled sunshine on' : 'hugged'} your thought</strong>
+                <p>{alert.thoughtTitle ? `On: ${alert.thoughtTitle}` : 'Tap to see the thought.'}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -7222,8 +7294,14 @@ function ThoughtBubblesRoom({ member }) {
     return unsubscribe;
   }, []);
 
-  async function sendHug(thought) {
+  async function sendThoughtReaction(thought, reactionType) {
     if (!thought?.id || !member?.uid) return;
+
+    const isSunshine = reactionType === 'sunshine';
+    const peopleKey = isSunshine ? 'sunshineBy' : 'huggedBy';
+    const countKey = isSunshine ? 'sunshineCount' : 'hugCount';
+    const alertType = isSunshine ? 'thought-sunshine' : 'thought-hug';
+    const actionName = isSunshine ? 'sunshine' : 'hug';
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -7232,35 +7310,36 @@ function ThoughtBubblesRoom({ member }) {
         if (!thoughtDoc.exists()) return;
 
         const data = thoughtDoc.data();
-        const huggedBy = Array.isArray(data.huggedBy) ? data.huggedBy : [];
+        const reactedBy = Array.isArray(data[peopleKey]) ? data[peopleKey] : [];
 
-        if (huggedBy.includes(member.uid)) {
-          throw new Error('You already sent this thought a hug.');
+        if (reactedBy.includes(member.uid)) {
+          throw new Error(isSunshine ? 'You already sprinkled sunshine on this thought.' : 'You already sent this thought a hug.');
         }
 
         transaction.update(thoughtRef, {
-          huggedBy: [...huggedBy, member.uid],
-          hugCount: Number(data.hugCount || 0) + 1,
+          [peopleKey]: [...reactedBy, member.uid],
+          [countKey]: Number(data[countKey] || 0) + 1,
           updatedAt: serverTimestamp(),
         });
       });
 
       if (thought.ownerUid && thought.ownerUid !== member.uid) {
         await addDoc(collection(db, 'littleAlerts'), {
-          type: 'thought-hug',
+          type: alertType,
           toUid: thought.ownerUid,
           fromUid: member.uid,
           fromName: member.displayName || 'Happy Little Bubby',
           thoughtId: thought.id,
           thoughtTitle: thought.title || 'Thought Bubble',
+          thoughtText: thought.text || '',
           read: false,
           createdAt: serverTimestamp(),
         });
       }
 
-      setStatus('Hug sent.');
+      setStatus(isSunshine ? 'Sunshine sprinkled.' : 'Hug sent.');
     } catch (err) {
-      setStatus(err.message || 'Could not send a hug.');
+      setStatus(err.message || `Could not send ${actionName}.`);
     }
   }
 
@@ -7282,9 +7361,9 @@ function ThoughtBubblesRoom({ member }) {
   return (
     <section className="room">
       <h2>🫧 Thought Bubbles</h2>
-      <p className="muted">Public thoughts shared from My Bubble. Send a little hug when someone says something that warms your blanket-fort heart.</p>
+      <p className="muted">Public thoughts shared from My Bubble. Send a hug or sprinkle sunshine when someone says something that warms your blanket-fort heart.</p>
 
-      {status && <p className={status.includes('sent') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
+      {status && <p className={status.includes('sent') || status.includes('sprinkled') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
 
       <div className="list" style={{ display: 'grid', gap: 16 }}>
         {thoughts.length === 0 && (
@@ -7297,6 +7376,9 @@ function ThoughtBubblesRoom({ member }) {
         {thoughts.map((thought) => {
           const mine = thought.ownerUid === member.uid;
           const alreadyHugged = Array.isArray(thought.huggedBy) && thought.huggedBy.includes(member.uid);
+          const alreadySunshine = Array.isArray(thought.sunshineBy) && thought.sunshineBy.includes(member.uid);
+          const reactionTotal = Number(thought.hugCount || 0) + Number(thought.sunshineCount || 0);
+          const communityFavourite = Number(thought.hugCount || 0) >= 10 || Number(thought.sunshineCount || 0) >= 10 || reactionTotal >= 15;
 
           return (
             <article
@@ -7349,9 +7431,29 @@ function ThoughtBubblesRoom({ member }) {
               {thought.title && <h3 style={{ marginBottom: 8 }}>{thought.title}</h3>}
               <p style={{ whiteSpace: 'pre-wrap', fontSize: 16, lineHeight: 1.65 }}>{thought.text}</p>
 
+              {communityFavourite && (
+                <p style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 12px',
+                  borderRadius: 999,
+                  background: '#fff7ed',
+                  border: '1px solid #fed7aa',
+                  color: '#9a3412',
+                  fontWeight: 950,
+                }}>
+                  🌟 Community Favourite
+                </p>
+              )}
+
               <div className="social-action-row" style={{ marginTop: 12 }}>
-                <SoftActionButton onClick={() => sendHug(thought)} disabled={alreadyHugged}>
-                  ❤️ {alreadyHugged ? 'Hug sent' : 'Send a Hug'} ({thought.hugCount || 0})
+                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'hug')} disabled={alreadyHugged}>
+                  🤗 {alreadyHugged ? 'Hug sent' : 'Hug'} ({thought.hugCount || 0})
+                </SoftActionButton>
+
+                <SoftActionButton onClick={() => sendThoughtReaction(thought, 'sunshine')} disabled={alreadySunshine}>
+                  🌟 {alreadySunshine ? 'Sunshine sprinkled' : 'Sprinkle Sunshine'} ({thought.sunshineCount || 0})
                 </SoftActionButton>
 
                 {mine && (
@@ -8330,7 +8432,7 @@ function ProfileRoom({ member, setMember }) {
               <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>
 
               <div className="social-action-row">
-                {thought.visibility === 'public' && <span className="muted">❤️ {thought.hugCount || 0} hugs</span>}
+                {thought.visibility === 'public' && <span className="muted">🤗 {thought.hugCount || 0} Hugs · 🌟 {thought.sunshineCount || 0} Sunshine</span>}
                 <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
                   🗑️ Delete thought
                 </SoftActionButton>
@@ -8445,14 +8547,14 @@ async function markFriendRequestsViewed(uid) {
   }
 }
 
-async function markThoughtHugAlertsViewed(uid) {
+async function markThoughtReactionAlertsViewed(uid) {
   if (!uid) return;
 
   try {
     const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
     const updates = snapshot.docs
       .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
-      .filter((alert) => alert.toUid === uid && alert.type === 'thought-hug' && alert.read === false)
+      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine'].includes(alert.type) && alert.read === false)
       .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
         read: true,
         readAt: serverTimestamp(),
@@ -8460,7 +8562,7 @@ async function markThoughtHugAlertsViewed(uid) {
 
     await Promise.all(updates);
   } catch (err) {
-    console.warn('Could not clear thought hug alerts:', err);
+    console.warn('Could not clear thought reaction alerts:', err);
   }
 }
 
@@ -8469,7 +8571,6 @@ async function markLittleAlertsViewed(uid) {
     markPrivateInboxViewed(uid),
     markFriendChatsViewed(uid),
     markFriendRequestsViewed(uid),
-    markThoughtHugAlertsViewed(uid),
   ]);
 }
 
