@@ -313,9 +313,10 @@ function toBabyTalk(text) {
   output = output.toLowerCase();
 
   const phraseRules = [
-    [/\bhello everyone[.!?]?\b/gi, 'hi evyone'],
-    [/\bhi everyone[.!?]?\b/gi, 'hi evyone'],
-    [/\bhello\b/gi, 'hi'],
+    [/\bhello everyone[.!?]?\b/gi, 'hewwo evyone'],
+    [/\bhi everyone[.!?]?\b/gi, 'hewwo evyone'],
+    [/\bhello\b/gi, 'hewwo'],
+    [/\bhi\b/gi, 'hewwo'],
     [/\bhow are you doing\??\b/gi, 'howyou doing?'],
     [/\bhow are you\??\b/gi, 'howyou?'],
     [/\bhow r u\??\b/gi, 'howyou?'],
@@ -434,7 +435,7 @@ function toBabyTalk(text) {
 
   // Phonetic cuteness pass: th -> d/f, r/l -> w, but protect common baby words already made.
   const protectedWords = new Set([
-    'hi', 'me', 'good', 'otay', 'yus', 'nu', 'eepy', 'nummies', 'nummo', 'bo-bo',
+    'hewwo', 'hi', 'me', 'good', 'otay', 'yus', 'nu', 'eepy', 'nummies', 'nummo', 'bo-bo',
     'nye-nye', 'bwankie', 'wawa', 'milkie', 'choccy', 'snackie', 'snackies',
     'diapie', 'nappie', 'bubby', 'bubbies', 'evyone', 'howyou?', 'howyou'
   ]);
@@ -467,7 +468,7 @@ function toBabyTalk(text) {
     .replace(/\s+/g, ' ')
     .replace(/\s+([?.!,])/g, '$1')
     .replace(/([?.!]){2,}/g, '$1')
-    .replace(/\bhi evyone\. howyou\? me good\b/gi, 'hi evyone. howyou? me good')
+    .replace(/\bhewwo evyone\. howyou\? me good\b/gi, 'hewwo evyone. howyou? me good')
     .trim();
 
   return output.charAt(0).toLowerCase() + output.slice(1);
@@ -7885,7 +7886,7 @@ function ThoughtBubblesRoom({ member }) {
       <h2>🫧 Thought Bubbles</h2>
       <p className="muted" style={{ lineHeight: 1.65 }}>
         🫧 Thoughts shared from My Bubble.<br />
-        🤗 Give a Hug when a thought brings a smile to your face, or 🌟 Sprinkle Sunshine when a thought brightens your day or warms your heart.
+        🤗 Give a Hug when a thought brings a smile to your face, or 🌟 Sprinkle Sunshine when a thought brightens your day or warms your heart or 🧸 when someone needs a warm hug to cheer them up.
       </p>
 
       {status && <p className={status.includes('sent') || status.includes('sprinkled') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
