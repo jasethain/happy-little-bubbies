@@ -1514,6 +1514,8 @@ function AuthGate({ setMember }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [biologicalAgeConfirmed, setBiologicalAgeConfirmed] = useState(false);
+  const [communityAgreementAccepted, setCommunityAgreementAccepted] = useState(false);
   const [error, setError] = useState('');
 
   async function register(event) {
@@ -1522,6 +1524,15 @@ function AuthGate({ setMember }) {
 
     try {
       const cleanEmail = email.trim().toLowerCase();
+
+      if (!biologicalAgeConfirmed) {
+        throw new Error('Please confirm that you are over the biological age of 18 before joining.');
+      }
+
+      if (!communityAgreementAccepted) {
+        throw new Error('Please agree to the Happy Little Bubbies kindness promise before joining.');
+      }
+
       const usersAlreadyExist = await hasAnyUsers();
 
       let role = 'member';
@@ -1554,6 +1565,9 @@ function AuthGate({ setMember }) {
         badges,
         status,
         inviteCode: inviteCode.trim().toUpperCase() || 'FIRST-HELPER-BUBBY',
+        biologicalAgeOver18Confirmed: true,
+        communityKindnessAgreementAccepted: true,
+        communityKindnessAgreementText: 'I agree to be nice to other bubbies, support and encourage each other, and be a good little bubby.',
         createdAt: serverTimestamp(),
       };
 
@@ -1610,6 +1624,50 @@ function AuthGate({ setMember }) {
             <>
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name" />
               <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Invite code, leave blank only for first Helper" />
+
+              <label
+                className="bubble"
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                  padding: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={biologicalAgeConfirmed}
+                  onChange={(e) => setBiologicalAgeConfirmed(e.target.checked)}
+                  style={{ width: 20, minWidth: 20, marginTop: 3 }}
+                />
+                <span>
+                  <strong>🔞 Age confirmation</strong><br />
+                  I confirm that I am over the biological age of 18.
+                </span>
+              </label>
+
+              <label
+                className="bubble"
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                  padding: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={communityAgreementAccepted}
+                  onChange={(e) => setCommunityAgreementAccepted(e.target.checked)}
+                  style={{ width: 20, minWidth: 20, marginTop: 3 }}
+                />
+                <span>
+                  <strong>🤗 Happy Little Bubbies kindness promise</strong><br />
+                  I agree to be nice to other bubbies, support and encourage each other, and be a good little bubby.
+                </span>
+              </label>
             </>
           )}
 
@@ -1618,7 +1676,9 @@ function AuthGate({ setMember }) {
 
           {error && <p className="error">{error}</p>}
 
-          <button className="primary">{isRegistering ? 'Join Happy Little Bubbies' : 'Sign in'}</button>
+          <button className="primary" disabled={isRegistering && (!biologicalAgeConfirmed || !communityAgreementAccepted)}>
+            {isRegistering ? 'Join Happy Little Bubbies' : 'Sign in'}
+          </button>
         </form>
 
         <button className="link-button" onClick={() => setMode(isRegistering ? 'signIn' : 'register')}>
