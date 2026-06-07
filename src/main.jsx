@@ -1929,6 +1929,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const bottomRef = useRef(null);
+  const friendChatTextRef = useRef(null);
 
   useEffect(() => {
     const chatQuery = query(collection(db, 'chatMessages'), orderBy('createdAt', 'asc'));
@@ -3412,6 +3413,7 @@ function FriendChatRoom({ member }) {
   const [selectedPresence, setSelectedPresence] = useState(null);
   const [threadMessages, setThreadMessages] = useState([]);
   const [message, setMessage] = useState('');
+  const [replyToFriendChat, setReplyToFriendChat] = useState(null);
   const [status, setStatus] = useState('');
   const [sending, setSending] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
@@ -3419,6 +3421,7 @@ function FriendChatRoom({ member }) {
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeout = useRef(null);
   const bottomRef = useRef(null);
+  const friendChatTextRef = useRef(null);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
@@ -3526,6 +3529,17 @@ function FriendChatRoom({ member }) {
     typingTimeout.current = setTimeout(() => updateTyping(false), 1200);
   }
 
+  function replyToFriendMessage(chat) {
+    if (!chat?.id) return;
+    setReplyToFriendChat({
+      id: chat.id,
+      text: chat.text || (chat.imageUrl ? '📷 Photo' : chat.callUrl ? 'Call invitation' : 'Message'),
+      senderName: chat.senderName || 'Friend',
+      senderUid: chat.senderUid || '',
+    });
+    setTimeout(() => friendChatTextRef.current?.focus(), 80);
+  }
+
   async function startPrivateCall(callType) {
     if (!selectedFriend || sending) return;
 
@@ -3623,6 +3637,9 @@ function FriendChatRoom({ member }) {
         text: cleanMessage,
         imageUrl: imagePayload.imageUrl || '',
         imageStoragePath: imagePayload.storagePath || '',
+        replyToId: replyToFriendChat?.id || '',
+        replyToText: replyToFriendChat?.text || '',
+        replyToSenderName: replyToFriendChat?.senderName || '',
         senderUid: member.uid,
         senderName: member.displayName,
         recipientUid: selectedFriend.uid,
@@ -3632,6 +3649,7 @@ function FriendChatRoom({ member }) {
       });
 
       setMessage('');
+      setReplyToFriendChat(null);
       setPhotoFile(null);
       updateTyping(false);
     } catch (err) {
@@ -3845,6 +3863,23 @@ function FriendChatRoom({ member }) {
                     }}
                   >
                     <strong>{chat.senderName}</strong>
+                    {chat.replyToText && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          padding: '8px 12px',
+                          borderRadius: 16,
+                          background: 'rgba(239,246,255,.92)',
+                          borderLeft: '4px solid #93c5fd',
+                          color: '#1e3a8a',
+                          fontSize: 13,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        <strong style={{ fontSize: 12 }}>Replying to {chat.replyToSenderName || 'message'}</strong>
+                        <div style={{ marginTop: 3, opacity: 0.86 }}>{chat.replyToText}</div>
+                      </div>
+                    )}
                     {chat.text && <p>{chat.text}</p>}
                     {chat.imageUrl && (
                       <ProtectedImage
@@ -3874,14 +3909,17 @@ function FriendChatRoom({ member }) {
                       </div>
                     )}
 
-                    {mine && (
-                      <div className="post-meta">
-                        <span className="muted" style={{ fontSize: 11, lineHeight: 1.2 }}>{formatDate(chat.createdAt)}</span>
+                    <div className="post-meta" style={{ marginTop: 10 }}>
+                      <span className="muted" style={{ fontSize: 11, lineHeight: 1.2 }}>{formatDate(chat.createdAt)}</span>
+                      <SoftActionButton onClick={() => replyToFriendMessage(chat)}>
+                        ↩️ Reply
+                      </SoftActionButton>
+                      {mine && (
                         <SoftActionButton danger onClick={() => deleteFriendChatMessage(chat)}>
                           🗑️ Delete post
                         </SoftActionButton>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -3902,7 +3940,31 @@ function FriendChatRoom({ member }) {
                 border: '2px solid #dbeafe',
               }}
             >
+              {replyToFriendChat && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 10,
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    padding: 12,
+                    borderRadius: 20,
+                    background: '#eef6ff',
+                    border: '1px solid #bfdbfe',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ color: '#1e3a8a' }}>↩️ Replying to {replyToFriendChat.senderName}</strong>
+                    <p className="muted" style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.35 }}>{replyToFriendChat.text}</p>
+                  </div>
+                  <button type="button" className="link-button" onClick={() => setReplyToFriendChat(null)}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+
               <textarea
+                ref={friendChatTextRef}
                 value={message}
                 onChange={(e) => handleTyping(e.target.value)}
                 placeholder={selectedFriend ? `Message ${selectedFriend.displayName}` : 'Pick a friend first'}
