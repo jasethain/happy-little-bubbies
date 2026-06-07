@@ -7589,6 +7589,7 @@ function ProfileRoom({ member, setMember, counts }) {
   const [thoughtStatus, setThoughtStatus] = useState('');
   const [savingThought, setSavingThought] = useState(false);
   const [editingBubble, setEditingBubble] = useState(false);
+  const alertsSectionRef = useRef(null);
 
   useEffect(() => {
     const friendsQuery = query(collection(db, 'friends'), orderBy('createdAt', 'desc'));
@@ -7922,7 +7923,37 @@ function ProfileRoom({ member, setMember, counts }) {
 
   return (
     <section className="room">
-      <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><SingleBubbleIcon size={36} /> My Bubble</h2>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
+          <SingleBubbleIcon size={36} /> My Bubble
+        </h2>
+
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => alertsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          title="Jump to My Little Alerts"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontWeight: 950,
+            position: 'relative',
+          }}
+        >
+          <span aria-hidden="true">🍼</span>
+          Little Alerts
+          <Badge count={counts?.total || 0} />
+        </button>
+      </div>
 
       <div
         className="bubble"
@@ -8472,10 +8503,14 @@ function ProfileRoom({ member, setMember, counts }) {
 
       )}
 
-      <div style={{ marginTop: 24 }}>
+      <div
+        ref={alertsSectionRef}
+        id="my-little-alerts"
+        style={{ marginTop: 24, scrollMarginTop: 110 }}
+      >
         <div className="profile" style={{ marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0 }}>🍼 Little Alerts</h2>
-          <p className="muted">Your hugs, sunshine, friend requests, Secret Little Letters, and friend chat notices now live inside My Bubble.</p>
+          <h2 style={{ marginTop: 0 }}>🍼 My Little Alerts</h2>
+          <p className="muted">Your hugs, sunshine, friend requests, Secret Little Letters, and friend chat notices are tucked safely inside My Bubble.</p>
         </div>
         <NotificationsRoom member={member} counts={counts || {}} />
       </div>
@@ -8697,6 +8732,7 @@ function AppShell({ member, setMember }) {
             if (item.id === 'friends') count = counts.friendRequests;
             if (item.id === 'friendChat') count = counts.friendChat;
             if (item.id === 'notifications') count = counts.total;
+            if (item.id === 'profile') count = counts.total;
 
             return (
               <button
