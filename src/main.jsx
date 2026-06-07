@@ -1053,7 +1053,8 @@ function SocialBabyPolish() {
         --social-line:rgba(191,219,254,.78);
         --social-card:rgba(255,255,255,.92);
       }
-      * { box-sizing:border-box; font-family:"Comic Sans MS","Comic Sans",cursive !important; }
+      @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap');
+      * { box-sizing:border-box; font-family:'Comic Neue',cursive !important; }
       body { background:linear-gradient(135deg,#fff1f7 0%,#eff6ff 48%,#fff7ed 100%); }
       .app { min-height:100vh; }
       .sidebar, .panel, .profile, .feature-card, .bubble, .auth-card, .notice {
