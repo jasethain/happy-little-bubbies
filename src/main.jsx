@@ -1053,7 +1053,7 @@ function SocialBabyPolish() {
         --social-line:rgba(191,219,254,.78);
         --social-card:rgba(255,255,255,.92);
       }
-      * { box-sizing:border-box; }
+      * { box-sizing:border-box; font-family:"Comic Sans MS","Comic Sans",cursive !important; }
       body { background:linear-gradient(135deg,#fff1f7 0%,#eff6ff 48%,#fff7ed 100%); }
       .app { min-height:100vh; }
       .sidebar, .panel, .profile, .feature-card, .bubble, .auth-card, .notice {
@@ -1664,6 +1664,27 @@ function HomeRoom({ setRoom, member, counts }) {
       <div className="hero">
         <h2>{welcomePhrase}</h2>
         <p className="muted">Welcome back, {member.displayName}.</p>
+      </div>
+
+      <div
+        className="profile"
+        style={{
+          marginBottom: 20,
+          background: 'linear-gradient(135deg,#fff7fb,#eef6ff)',
+        }}
+      >
+        <h3>🫧 Welcome to Happy Little Bubbies 🫧</h3>
+        <p>Happy Little Bubbies is a community space designed to bring littles together.</p>
+        <p>
+          Here you can Give a Hug 🤗 when a thought brings a smile to your face,
+          or Sprinkle Sunshine 🌟 when a thought brightens your day or warms your heart,
+          or send a 🧸 when someone needs a warm hug to cheer them up.
+        </p>
+        <p>
+          If you have any ideas you would like to see added please share them in the
+          Nursery Chat section.
+        </p>
+        <p>I hope you love using this space as we grow it together 😊.</p>
       </div>
 
       {member.role === 'admin' && (
