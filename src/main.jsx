@@ -145,6 +145,7 @@ const baseRooms = [
   { id: 'safety', label: 'Diaper Cops', icon: DiaperCopIcon },
   { id: 'games', label: 'Games', icon: makeBabyIcon('🎮') },
   { id: 'memory', label: 'Memory Book', icon: makeBabyIcon('📔') },
+  { id: 'thoughts', label: 'Thought Bubbles', icon: makeBabyIcon('🫧') },
   { id: 'profile', label: 'My Bubble', icon: makeBabyIcon('🫧') },
 ];
 
@@ -170,6 +171,7 @@ const routeMap = {
   safety: '/no-naughty-business',
   profile: '/my-bubble',
   memory: '/memory-book',
+  thoughts: '/thought-bubbles',
   games: '/games',
   admin: '/admin-console',
 };
@@ -880,6 +882,7 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'naughtyBabyReports', 'setup-naughty-baby-report'), setupDoc, { merge: true });
   await setDoc(doc(db, 'mentorProfiles', 'setup-mentor-profile'), setupDoc, { merge: true });
   await setDoc(doc(db, 'mentorRequests', 'setup-mentor-request'), setupDoc, { merge: true });
+  await setDoc(doc(db, 'thoughtBubbles', 'setup-thought-bubble'), setupDoc, { merge: true });
 }
 
 
@@ -1544,6 +1547,7 @@ function HomeRoom({ setRoom, member, counts }) {
     [<DiaperCopIcon size={62} />, 'Diaper Cops', 'Report a Naughty Baby to Helper admins.', 'safety', 0],
     ['🎮', 'Games', 'Play Diaper Dash and more little arcade games.', 'games', 0],
     ['📔', 'Memory Book', 'Your private scrapbook of photos, friends, stories, and special moments.', 'memory', 0],
+    ['🫧', 'Thought Bubbles', 'Write private Bubble notes or share public thoughts with the community.', 'thoughts', 0],
     ['👑', 'Head Helper', 'Helper control room.', 'admin', 0],
   ];
 
@@ -6144,6 +6148,13 @@ function MemoryBookRoom({ member }) {
   const [memoryTitle, setMemoryTitle] = useState('');
   const [memoryNote, setMemoryNote] = useState('');
   const [status, setStatus] = useState('');
+  const [thoughtTitle, setThoughtTitle] = useState('');
+  const [thoughtText, setThoughtText] = useState('');
+  const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
+  const [thoughtVisibility, setThoughtVisibility] = useState('private');
+  const [myThoughts, setMyThoughts] = useState([]);
+  const [thoughtStatus, setThoughtStatus] = useState('');
+  const [savingThought, setSavingThought] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -7154,6 +7165,164 @@ function buildCartoonAvatarDataUrl(options = {}) {
 
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
+function ThoughtBubblesRoom({ member }) {
+  const [thoughts, setThoughts] = useState([]);
+  const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    const thoughtsQuery = query(collection(db, 'thoughtBubbles'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      thoughtsQuery,
+      (snapshot) => {
+        const loadedThoughts = snapshot.docs
+          .map((thoughtDoc) => ({ id: thoughtDoc.id, ...thoughtDoc.data() }))
+          .filter((thought) => thought.visibility === 'public' && !thought.setupOnly);
+
+        setThoughts(loadedThoughts);
+        setStatus('');
+      },
+      (err) => setStatus(err.message || 'Could not load Thought Bubbles.')
+    );
+
+    return unsubscribe;
+  }, []);
+
+  async function sendHug(thought) {
+    if (!thought?.id || !member?.uid) return;
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const thoughtRef = doc(db, 'thoughtBubbles', thought.id);
+        const thoughtDoc = await transaction.get(thoughtRef);
+        if (!thoughtDoc.exists()) return;
+
+        const data = thoughtDoc.data();
+        const huggedBy = Array.isArray(data.huggedBy) ? data.huggedBy : [];
+
+        if (huggedBy.includes(member.uid)) {
+          throw new Error('You already sent this thought a hug.');
+        }
+
+        transaction.update(thoughtRef, {
+          huggedBy: [...huggedBy, member.uid],
+          hugCount: Number(data.hugCount || 0) + 1,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      setStatus('Hug sent.');
+    } catch (err) {
+      setStatus(err.message || 'Could not send a hug.');
+    }
+  }
+
+  async function deletePublicThought(thought) {
+    if (!thought?.id || thought.ownerUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this Thought Bubble?');
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, 'thoughtBubbles', thought.id));
+      setThoughts((current) => current.filter((item) => item.id !== thought.id));
+      setStatus('Thought Bubble deleted.');
+    } catch (err) {
+      setStatus(err.message || 'Could not delete this Thought Bubble.');
+    }
+  }
+
+  return (
+    <section className="room">
+      <h2>🫧 Thought Bubbles</h2>
+      <p className="muted">Public thoughts shared from My Bubble. Send a little hug when someone says something that warms your blanket-fort heart.</p>
+
+      {status && <p className={status.includes('sent') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
+
+      <div className="list" style={{ display: 'grid', gap: 16 }}>
+        {thoughts.length === 0 && (
+          <div className="bubble">
+            <strong>No public thoughts yet</strong>
+            <p>Write one in My Bubble and choose “Share with Thought Bubbles.”</p>
+          </div>
+        )}
+
+        {thoughts.map((thought) => {
+          const mine = thought.ownerUid === member.uid;
+          const alreadyHugged = Array.isArray(thought.huggedBy) && thought.huggedBy.includes(member.uid);
+
+          return (
+            <article
+              className="bubble"
+              key={thought.id}
+              style={{
+                border: '1px solid rgba(191,219,254,.86)',
+                boxShadow: '0 16px 34px rgba(30,58,138,.08)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                {thought.ownerPhotoUrl ? (
+                  <img
+                    src={thought.ownerPhotoUrl}
+                    alt=""
+                    style={{
+                      width: 58,
+                      height: 58,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      background: '#ffffff',
+                      border: '2px solid #bfdbfe',
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: '#eef6ff',
+                    border: '2px solid #bfdbfe',
+                    fontSize: 28,
+                  }}>
+                    {thought.ownerAvatar || '🫧'}
+                  </div>
+                )}
+
+                <div>
+                  <strong style={{ color: '#1e3a8a', fontSize: 18 }}>{thought.ownerName || 'Happy Little Bubby'}</strong>
+                  <p className="muted" style={{ margin: '4px 0 0' }}>
+                    {thought.mood || '🫧 Thoughtful'}
+                    {thought.ownerLocation ? ` · ${thought.ownerLocation}` : ''}
+                    {thought.createdAt?.toDate ? ` · ${formatDate(thought.createdAt)}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              {thought.title && <h3 style={{ marginBottom: 8 }}>{thought.title}</h3>}
+              <p style={{ whiteSpace: 'pre-wrap', fontSize: 16, lineHeight: 1.65 }}>{thought.text}</p>
+
+              <div className="social-action-row" style={{ marginTop: 12 }}>
+                <SoftActionButton onClick={() => sendHug(thought)} disabled={alreadyHugged}>
+                  ❤️ {alreadyHugged ? 'Hug sent' : 'Send a Hug'} ({thought.hugCount || 0})
+                </SoftActionButton>
+
+                {mine && (
+                  <SoftActionButton danger onClick={() => deletePublicThought(thought)}>
+                    🗑️ Delete
+                  </SoftActionButton>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+
 function ProfileRoom({ member, setMember }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
@@ -7283,6 +7452,24 @@ function ProfileRoom({ member, setMember }) {
     return unsubscribe;
   }, [member.uid]);
 
+  useEffect(() => {
+    const thoughtsQuery = query(collection(db, 'thoughtBubbles'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      thoughtsQuery,
+      (snapshot) => {
+        const ownThoughts = snapshot.docs
+          .map((thoughtDoc) => ({ id: thoughtDoc.id, ...thoughtDoc.data() }))
+          .filter((thought) => thought.ownerUid === member.uid && !thought.setupOnly);
+
+        setMyThoughts(ownThoughts);
+      },
+      () => {}
+    );
+
+    return unsubscribe;
+  }, [member.uid]);
+
   function toggleCommunityInterest(option) {
     setCommunityInterests((current) =>
       current.includes(option)
@@ -7355,6 +7542,63 @@ function ProfileRoom({ member, setMember }) {
       setStatus('Gallery photo deleted.');
     } catch (err) {
       setStatus(err.message || 'Could not remove gallery photo.');
+    }
+  }
+
+  async function submitThought(event) {
+    event.preventDefault();
+    setThoughtStatus('');
+
+    const cleanText = thoughtText.trim();
+    const cleanTitle = thoughtTitle.trim();
+
+    if (!cleanText) {
+      setThoughtStatus('Please write something for your Bubble first.');
+      return;
+    }
+
+    setSavingThought(true);
+
+    try {
+      await addDoc(collection(db, 'thoughtBubbles'), {
+        ownerUid: member.uid,
+        ownerName: displayName.trim() || member.displayName || 'Happy Little Bubby',
+        ownerPhotoUrl: photoUrl || member.photoUrl || '',
+        ownerAvatar: avatar || member.avatar || '🫧',
+        ownerLocation: location.trim() || member.location || '',
+        title: cleanTitle,
+        text: cleanText,
+        mood: thoughtMood,
+        visibility: thoughtVisibility,
+        hugCount: 0,
+        huggedBy: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      setThoughtTitle('');
+      setThoughtText('');
+      setThoughtVisibility('private');
+      setThoughtStatus(thoughtVisibility === 'public' ? 'Thought shared to Thought Bubbles.' : 'Thought saved in My Bubble.');
+    } catch (err) {
+      setThoughtStatus(err.message || 'Could not save this thought.');
+    } finally {
+      setSavingThought(false);
+    }
+  }
+
+  async function deleteMyThought(thought) {
+    if (!thought?.id || thought.ownerUid !== member.uid) return;
+
+    const ok = window.confirm('Delete this thought from your Bubble?');
+    if (!ok) return;
+
+    try {
+      await deleteDoc(doc(db, 'thoughtBubbles', thought.id));
+      setMyThoughts((current) => current.filter((item) => item.id !== thought.id));
+      setThoughtStatus('Thought deleted.');
+    } catch (err) {
+      setThoughtStatus(err.message || 'Could not delete this thought.');
     }
   }
 
@@ -8168,10 +8412,11 @@ function AppShell({ member, setMember }) {
         {room === 'admin' && <AdminConsole member={member} />}
         {room === 'profile' && <ProfileRoom member={member} setMember={setMember} />}
         {room === 'memory' && <MemoryBookRoom member={member} />}
+        {room === 'thoughts' && <ThoughtBubblesRoom member={member} />}
         {room === 'mentors' && <MentorLoungeRoom member={member} />}
         {room === 'safety' && <NaughtyBabyRoom member={member} />}
         {room === 'games' && <GamesRoom />}
-        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'games' && room !== 'mentors' && room !== 'memory' && <PlaceholderRoom title={active.label} />}
+        {room !== 'home' && room !== 'chat' && room !== 'inbox' && room !== 'friends' && room !== 'members' && room !== 'friendChat' && room !== 'notifications' && room !== 'stories' && room !== 'admin' && room !== 'profile' && room !== 'safety' && room !== 'games' && room !== 'mentors' && room !== 'memory' && room !== 'thoughts' && <PlaceholderRoom title={active.label} />}
       </section>
     </main>
   );
@@ -8203,4 +8448,113 @@ function Root() {
   return <AppShell member={member} setMember={setMember} />;
 }
 
-createRoot(document.getElementById('root')).render(<Root />);
+createRoot(document.getElementById('root')).render(<Root />)
+        <div
+          className="bubble"
+          style={{
+            marginTop: 22,
+            padding: 18,
+            borderRadius: 28,
+            background: 'linear-gradient(135deg, rgba(239,246,255,.96), rgba(252,231,243,.88))',
+            border: '1px solid rgba(191,219,254,.86)',
+          }}
+        >
+          <h3>🫧 My Thoughts</h3>
+          <p className="muted">
+            Write something that stays tucked in your Bubble, or share it publicly in the Thought Bubbles room.
+          </p>
+
+          <form onSubmit={submitThought} style={{ display: 'grid', gap: 12 }}>
+            <input
+              value={thoughtTitle}
+              onChange={(e) => setThoughtTitle(e.target.value)}
+              placeholder="Thought title, optional"
+              maxLength={90}
+            />
+
+            <textarea
+              value={thoughtText}
+              onChange={(e) => setThoughtText(e.target.value)}
+              placeholder="What is floating around in your Bubble today?"
+              maxLength={1200}
+              style={{ minHeight: 130 }}
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+              <label>
+                Mood
+                <select value={thoughtMood} onChange={(e) => setThoughtMood(e.target.value)}>
+                  <option>😊 Happy</option>
+                  <option>😢 Sad</option>
+                  <option>🌈 Excited</option>
+                  <option>🤔 Thinking</option>
+                  <option>🧸 Cozy</option>
+                  <option>💤 Sleepy</option>
+                  <option>⭐ Proud</option>
+                  <option>🫧 Dreamy</option>
+                </select>
+              </label>
+
+              <label>
+                Visibility
+                <select value={thoughtVisibility} onChange={(e) => setThoughtVisibility(e.target.value)}>
+                  <option value="private">🔒 Keep in My Bubble</option>
+                  <option value="friends">🧸 Friends Only</option>
+                  <option value="public">🌍 Share with Thought Bubbles</option>
+                </select>
+              </label>
+            </div>
+
+            <button type="submit" className="primary" disabled={savingThought}>
+              {savingThought ? 'Saving Thought...' : 'Save Thought'}
+            </button>
+          </form>
+
+          {thoughtStatus && (
+            <p className={thoughtStatus.includes('saved') || thoughtStatus.includes('shared') || thoughtStatus.includes('deleted') ? 'success' : 'error'}>
+              {thoughtStatus}
+            </p>
+          )}
+
+          <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+            {myThoughts.length === 0 && (
+              <div className="notice">No thoughts saved yet. Tiny cloud, big possibilities.</div>
+            )}
+
+            {myThoughts.map((thought) => (
+              <article
+                className="bubble"
+                key={thought.id}
+                style={{
+                  padding: 16,
+                  background: '#ffffff',
+                  border: thought.visibility === 'public' ? '2px solid #bfdbfe' : '1px solid rgba(191,219,254,.72)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <strong style={{ color: '#1e3a8a' }}>
+                    {thought.mood || '🫧'} {thought.title || 'Thought Bubble'}
+                  </strong>
+                  <span className="muted">
+                    {thought.visibility === 'public'
+                      ? '🌍 Public'
+                      : thought.visibility === 'friends'
+                        ? '🧸 Friends Only'
+                        : '🔒 Private'}
+                  </span>
+                </div>
+
+                <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>
+
+                <div className="social-action-row">
+                  {thought.visibility === 'public' && <span className="muted">❤️ {thought.hugCount || 0} hugs</span>}
+                  <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
+                    🗑️ Delete thought
+                  </SoftActionButton>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+
+;
