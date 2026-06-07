@@ -858,7 +858,7 @@ function useNotificationCounts(member) {
       const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine'].includes(alert.type)).length;
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-comment'].includes(alert.type)).length;
 
       setCounts((prev) => {
         const next = { ...prev, thoughtHugs: unreadThoughtReactions };
@@ -928,6 +928,7 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'mentorProfiles', 'setup-mentor-profile'), setupDoc, { merge: true });
   await setDoc(doc(db, 'mentorRequests', 'setup-mentor-request'), setupDoc, { merge: true });
   await setDoc(doc(db, 'thoughtBubbles', 'setup-thought-bubble'), setupDoc, { merge: true });
+  await setDoc(doc(db, 'thoughtComments', 'setup-thought-comment'), setupDoc, { merge: true });
   await setDoc(doc(db, 'littleAlerts', 'setup-little-alert'), setupDoc, { merge: true });
 }
 
@@ -2065,7 +2066,7 @@ function ChatRoom({ member, onPrivateMessageUser }) {
 
               {mine && (
                 <div className="post-meta">
-                  <span className="muted">{formatDate(chat.createdAt)}</span>
+                  <span className="muted" style={{ fontSize: 11, lineHeight: 1.2 }}>{formatDate(chat.createdAt)}</span>
                   <SoftActionButton danger onClick={() => deleteChatMessage(chat)}>
                     🗑️ Delete post
                   </SoftActionButton>
@@ -2166,6 +2167,7 @@ function InboxRoom({ member, initialRecipient }) {
   const [selectedRecipientUid, setSelectedRecipientUid] = useState(initialRecipient?.uid || '');
   const [availableUsers, setAvailableUsers] = useState([]);
   const [body, setBody] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inboxStatus, setInboxStatus] = useState('');
   const [sending, setSending] = useState(false);
@@ -2332,6 +2334,20 @@ function InboxRoom({ member, initialRecipient }) {
     }
   }
 
+  function replyToPrivateMessage(event, msg) {
+    event.stopPropagation();
+    const otherUid = msg.fromUid === member.uid ? msg.toUid : msg.fromUid;
+    const otherName = msg.fromUid === member.uid ? msg.toName : msg.fromName;
+
+    if (otherUid) setSelectedRecipientUid(otherUid);
+    setReplyingTo({
+      id: msg.id,
+      name: otherName || 'Happy Little Bubby',
+      body: msg.body || msg.lastMessage || '',
+    });
+    setInboxStatus(`Replying to ${otherName || 'this message'}.`);
+  }
+
   async function sendPrivateMessage(event) {
     event.preventDefault();
     const cleanBody = body.trim();
@@ -2354,12 +2370,16 @@ function InboxRoom({ member, initialRecipient }) {
         toUid: recipient.uid,
         toName: recipient.displayName || 'Happy Little Bubby',
         body: cleanBody,
+        replyToId: replyingTo?.id || '',
+        replyToName: replyingTo?.name || '',
+        replyToBody: replyingTo?.body || '',
         read: false,
         deletedFor: [],
         createdAt: serverTimestamp(),
       });
 
       setBody('');
+      setReplyingTo(null);
       setSelectedRecipientUid(recipient.uid);
       setInboxStatus('Private message sent.');
     } catch (err) {
@@ -2584,6 +2604,23 @@ function InboxRoom({ member, initialRecipient }) {
                       )}
                     </div>
 
+                    {msg.replyToBody && (
+                      <div style={{
+                        marginTop: 10,
+                        padding: '8px 10px',
+                        borderRadius: 14,
+                        background: sentByMe ? 'rgba(255,255,255,0.18)' : '#ffffff',
+                        border: sentByMe ? '1px solid rgba(255,255,255,0.22)' : '1px solid #e5e7eb',
+                        fontSize: 12,
+                        opacity: 0.92,
+                      }}>
+                        <strong>↩️ Reply to {msg.replyToName || 'message'}</strong>
+                        <div style={{ marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {msg.replyToBody}
+                        </div>
+                      </div>
+                    )}
+
                     {msg.body && <p style={{ margin: '8px 0 6px' }}>{msg.body}</p>}
 
                     {msg.callUrl && (
@@ -2637,25 +2674,42 @@ function InboxRoom({ member, initialRecipient }) {
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                      <span style={{ fontSize: 12, opacity: 0.82 }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, lineHeight: 1.2, opacity: 0.72 }}>
                         {formatDate(msg.createdAt)}
                       </span>
-                      <button
-                        type="button"
-                        onClick={(event) => deletePrivateMessage(event, msg)}
-                        style={{
-                          border: 0,
-                          borderRadius: 999,
-                          padding: '5px 10px',
-                          fontWeight: 900,
-                          cursor: 'pointer',
-                          background: sentByMe ? 'rgba(255,255,255,0.22)' : '#fee2e2',
-                          color: sentByMe ? '#ffffff' : '#be123c',
-                        }}
-                      >
-                        Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={(event) => replyToPrivateMessage(event, msg)}
+                          style={{
+                            border: 0,
+                            borderRadius: 999,
+                            padding: '5px 10px',
+                            fontWeight: 900,
+                            cursor: 'pointer',
+                            background: sentByMe ? 'rgba(255,255,255,0.22)' : '#eef6ff',
+                            color: sentByMe ? '#ffffff' : '#1e3a8a',
+                          }}
+                        >
+                          ↩️ Reply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => deletePrivateMessage(event, msg)}
+                          style={{
+                            border: 0,
+                            borderRadius: 999,
+                            padding: '5px 10px',
+                            fontWeight: 900,
+                            cursor: 'pointer',
+                            background: sentByMe ? 'rgba(255,255,255,0.22)' : '#fee2e2',
+                            color: sentByMe ? '#ffffff' : '#be123c',
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2663,6 +2717,43 @@ function InboxRoom({ member, initialRecipient }) {
             })}
             <div ref={bottomRef} />
           </div>
+
+          {replyingTo && (
+            <div style={{
+              margin: '14px 18px 0',
+              padding: 12,
+              borderRadius: 18,
+              background: '#fff7ed',
+              border: '1px solid #fed7aa',
+              color: '#9a3412',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+              alignItems: 'center',
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <strong>↩️ Replying to {replyingTo.name}</strong>
+                <p style={{ margin: '4px 0 0', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {replyingTo.body || 'Message'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                style={{
+                  border: 0,
+                  borderRadius: 999,
+                  padding: '5px 10px',
+                  cursor: 'pointer',
+                  background: '#ffffff',
+                  color: '#9a3412',
+                  fontWeight: 900,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={sendPrivateMessage}
@@ -3785,7 +3876,7 @@ function FriendChatRoom({ member }) {
 
                     {mine && (
                       <div className="post-meta">
-                        <span className="muted">{formatDate(chat.createdAt)}</span>
+                        <span className="muted" style={{ fontSize: 11, lineHeight: 1.2 }}>{formatDate(chat.createdAt)}</span>
                         <SoftActionButton danger onClick={() => deleteFriendChatMessage(chat)}>
                           🗑️ Delete post
                         </SoftActionButton>
@@ -7310,6 +7401,9 @@ function buildCartoonAvatarDataUrl(options = {}) {
 function ThoughtBubblesRoom({ member }) {
   const [thoughts, setThoughts] = useState([]);
   const [status, setStatus] = useState('');
+  const [comments, setComments] = useState([]);
+  const [openCommentThoughtId, setOpenCommentThoughtId] = useState('');
+  const [commentText, setCommentText] = useState('');
 
   useEffect(() => {
     const thoughtsQuery = query(collection(db, 'thoughtBubbles'), orderBy('createdAt', 'desc'));
@@ -7329,6 +7423,63 @@ function ThoughtBubblesRoom({ member }) {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const commentsQuery = query(collection(db, 'thoughtComments'), orderBy('createdAt', 'asc'));
+
+    const unsubscribe = onSnapshot(
+      commentsQuery,
+      (snapshot) => {
+        const loadedComments = snapshot.docs
+          .map((commentDoc) => ({ id: commentDoc.id, ...commentDoc.data() }))
+          .filter((comment) => !comment.setupOnly);
+
+        setComments(loadedComments);
+      },
+      (err) => setStatus(err.message || 'Could not load Thought Bubble comments.')
+    );
+
+    return unsubscribe;
+  }, []);
+
+  async function sendThoughtComment(event, thought) {
+    event.preventDefault();
+    const cleanComment = commentText.trim();
+    if (!thought?.id || !member?.uid || !cleanComment) return;
+
+    try {
+      await addDoc(collection(db, 'thoughtComments'), {
+        thoughtId: thought.id,
+        thoughtOwnerUid: thought.ownerUid || '',
+        fromUid: member.uid,
+        fromName: member.displayName || 'Happy Little Bubby',
+        text: cleanComment,
+        createdAt: serverTimestamp(),
+      });
+
+      if (thought.ownerUid && thought.ownerUid !== member.uid) {
+        await addDoc(collection(db, 'littleAlerts'), {
+          type: 'thought-comment',
+          toUid: thought.ownerUid,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          thoughtId: thought.id,
+          thoughtTitle: thought.title || 'Thought Bubble',
+          thoughtText: thought.text || '',
+          thoughtImageUrl: thought.imageUrl || '',
+          commentText: cleanComment,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      setCommentText('');
+      setOpenCommentThoughtId(thought.id);
+      setStatus('Comment added.');
+    } catch (err) {
+      setStatus(err.message || 'Could not add comment.');
+    }
+  }
 
   async function sendThoughtReaction(thought, reactionType) {
     if (!thought?.id || !member?.uid) return;
@@ -7420,6 +7571,8 @@ function ThoughtBubblesRoom({ member }) {
           const alreadySunshine = Array.isArray(thought.sunshineBy) && thought.sunshineBy.includes(member.uid);
           const reactionTotal = Number(thought.hugCount || 0) + Number(thought.sunshineCount || 0);
           const communityFavourite = Number(thought.hugCount || 0) >= 10 || Number(thought.sunshineCount || 0) >= 10 || reactionTotal >= 15;
+          const thoughtComments = comments.filter((comment) => comment.thoughtId === thought.id);
+          const commentsOpen = openCommentThoughtId === thought.id;
 
           return (
             <article
@@ -7497,12 +7650,59 @@ function ThoughtBubblesRoom({ member }) {
                   🌟 {alreadySunshine ? 'Sunshine sprinkled' : 'Sprinkle Sunshine'} ({thought.sunshineCount || 0})
                 </SoftActionButton>
 
+                <SoftActionButton onClick={() => setOpenCommentThoughtId(commentsOpen ? '' : thought.id)}>
+                  💬 Comment ({thoughtComments.length})
+                </SoftActionButton>
+
                 {mine && (
                   <SoftActionButton danger onClick={() => deletePublicThought(thought)}>
                     🗑️ Delete
                   </SoftActionButton>
                 )}
               </div>
+
+              {commentsOpen && (
+                <div style={{
+                  marginTop: 14,
+                  padding: 14,
+                  borderRadius: 20,
+                  background: '#f8fbff',
+                  border: '1px solid rgba(191,219,254,.82)',
+                }}>
+                  <strong style={{ color: '#1e3a8a' }}>💬 Comments</strong>
+
+                  <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                    {thoughtComments.length === 0 && (
+                      <p className="muted" style={{ margin: 0 }}>No comments yet. Leave the first little note.</p>
+                    )}
+
+                    {thoughtComments.map((comment) => (
+                      <div key={comment.id} style={{
+                        padding: 10,
+                        borderRadius: 16,
+                        background: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                      }}>
+                        <strong style={{ color: '#1e3a8a' }}>{comment.fromName || 'Happy Little Bubby'}</strong>
+                        <p style={{ margin: '6px 0', whiteSpace: 'pre-wrap' }}>{comment.text}</p>
+                        <span className="muted" style={{ fontSize: 10, lineHeight: 1.2 }}>
+                          {formatDate(comment.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={(event) => sendThoughtComment(event, thought)} style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                    <input
+                      value={commentText}
+                      onChange={(event) => setCommentText(event.target.value)}
+                      placeholder="Write a kind comment..."
+                      style={{ flex: '1 1 220px' }}
+                    />
+                    <button className="primary" type="submit">Post Comment</button>
+                  </form>
+                </div>
+              )}
             </article>
           );
         })}
