@@ -7360,7 +7360,10 @@ function ThoughtBubblesRoom({ member }) {
   return (
     <section className="room">
       <h2>🫧 Thought Bubbles</h2>
-      <p className="muted">Public thoughts shared from My Bubble. Send a hug or sprinkle sunshine when someone says something that warms your blanket-fort heart.</p>
+      <p className="muted" style={{ lineHeight: 1.65 }}>
+        🫧 Thoughts shared from My Bubble.<br />
+        🤗 Give a Hug when a thought brings a smile to your face, or 🌟 Sprinkle Sunshine when a thought brightens your day or warms your heart.
+      </p>
 
       {status && <p className={status.includes('sent') || status.includes('sprinkled') || status.includes('deleted') ? 'success' : 'error'}>{status}</p>}
 
