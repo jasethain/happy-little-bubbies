@@ -6148,13 +6148,6 @@ function MemoryBookRoom({ member }) {
   const [memoryTitle, setMemoryTitle] = useState('');
   const [memoryNote, setMemoryNote] = useState('');
   const [status, setStatus] = useState('');
-  const [thoughtTitle, setThoughtTitle] = useState('');
-  const [thoughtText, setThoughtText] = useState('');
-  const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
-  const [thoughtVisibility, setThoughtVisibility] = useState('private');
-  const [myThoughts, setMyThoughts] = useState([]);
-  const [thoughtStatus, setThoughtStatus] = useState('');
-  const [savingThought, setSavingThought] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -6606,6 +6599,13 @@ function MembersRoom({ member, onPrivateMessageUser }) {
   const [status, setStatus] = useState('');
   const [bubblePhotos, setBubblePhotos] = useState([]);
   const [openGalleryPhoto, setOpenGalleryPhoto] = useState(null);
+  const [thoughtTitle, setThoughtTitle] = useState('');
+  const [thoughtText, setThoughtText] = useState('');
+  const [thoughtMood, setThoughtMood] = useState('🧸 Cozy');
+  const [thoughtVisibility, setThoughtVisibility] = useState('private');
+  const [myThoughts, setMyThoughts] = useState([]);
+  const [thoughtStatus, setThoughtStatus] = useState('');
+  const [savingThought, setSavingThought] = useState(false);
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'), orderBy('displayName', 'asc'));
@@ -8178,6 +8178,114 @@ function ProfileRoom({ member, setMember }) {
 
         {status && <p className={status.includes('updated') || status.includes('Gallery photo') || status.includes('removed') || status.includes('uploaded') ? 'success' : 'error'}>{status}</p>}
       </div>
+
+      <div
+        className="bubble"
+        style={{
+          marginTop: 22,
+          padding: 18,
+          borderRadius: 28,
+          background: 'linear-gradient(135deg, rgba(239,246,255,.96), rgba(252,231,243,.88))',
+          border: '1px solid rgba(191,219,254,.86)',
+        }}
+      >
+        <h3>🫧 My Thoughts</h3>
+        <p className="muted">
+          Write something that stays tucked in your Bubble, or share it publicly in the Thought Bubbles room.
+        </p>
+
+        <form onSubmit={submitThought} style={{ display: 'grid', gap: 12 }}>
+          <input
+            value={thoughtTitle}
+            onChange={(e) => setThoughtTitle(e.target.value)}
+            placeholder="Thought title, optional"
+            maxLength={90}
+          />
+
+          <textarea
+            value={thoughtText}
+            onChange={(e) => setThoughtText(e.target.value)}
+            placeholder="What is floating around in your Bubble today?"
+            maxLength={1200}
+            style={{ minHeight: 130 }}
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+            <label>
+              Mood
+              <select value={thoughtMood} onChange={(e) => setThoughtMood(e.target.value)}>
+                <option>😊 Happy</option>
+                <option>😢 Sad</option>
+                <option>🌈 Excited</option>
+                <option>🤔 Thinking</option>
+                <option>🧸 Cozy</option>
+                <option>💤 Sleepy</option>
+                <option>⭐ Proud</option>
+                <option>🫧 Dreamy</option>
+              </select>
+            </label>
+
+            <label>
+              Visibility
+              <select value={thoughtVisibility} onChange={(e) => setThoughtVisibility(e.target.value)}>
+                <option value="private">🔒 Keep in My Bubble</option>
+                <option value="friends">🧸 Friends Only</option>
+                <option value="public">🌍 Share with Thought Bubbles</option>
+              </select>
+            </label>
+          </div>
+
+          <button type="submit" className="primary" disabled={savingThought}>
+            {savingThought ? 'Saving Thought...' : 'Save Thought'}
+          </button>
+        </form>
+
+        {thoughtStatus && (
+          <p className={thoughtStatus.includes('saved') || thoughtStatus.includes('shared') || thoughtStatus.includes('deleted') ? 'success' : 'error'}>
+            {thoughtStatus}
+          </p>
+        )}
+
+        <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+          {myThoughts.length === 0 && (
+            <div className="notice">No thoughts saved yet. Tiny cloud, big possibilities.</div>
+          )}
+
+          {myThoughts.map((thought) => (
+            <article
+              className="bubble"
+              key={thought.id}
+              style={{
+                padding: 16,
+                background: '#ffffff',
+                border: thought.visibility === 'public' ? '2px solid #bfdbfe' : '1px solid rgba(191,219,254,.72)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <strong style={{ color: '#1e3a8a' }}>
+                  {thought.mood || '🫧'} {thought.title || 'Thought Bubble'}
+                </strong>
+                <span className="muted">
+                  {thought.visibility === 'public'
+                    ? '🌍 Public'
+                    : thought.visibility === 'friends'
+                      ? '🧸 Friends Only'
+                      : '🔒 Private'}
+                </span>
+              </div>
+
+              <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>
+
+              <div className="social-action-row">
+                {thought.visibility === 'public' && <span className="muted">❤️ {thought.hugCount || 0} hugs</span>}
+                <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
+                  🗑️ Delete thought
+                </SoftActionButton>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
       <GalleryPhotoModal photo={openGalleryPhoto} onClose={() => setOpenGalleryPhoto(null)} canRemove onRemove={deleteGalleryPhoto} />
     </section>
   );
@@ -8449,112 +8557,3 @@ function Root() {
 }
 
 createRoot(document.getElementById('root')).render(<Root />)
-        <div
-          className="bubble"
-          style={{
-            marginTop: 22,
-            padding: 18,
-            borderRadius: 28,
-            background: 'linear-gradient(135deg, rgba(239,246,255,.96), rgba(252,231,243,.88))',
-            border: '1px solid rgba(191,219,254,.86)',
-          }}
-        >
-          <h3>🫧 My Thoughts</h3>
-          <p className="muted">
-            Write something that stays tucked in your Bubble, or share it publicly in the Thought Bubbles room.
-          </p>
-
-          <form onSubmit={submitThought} style={{ display: 'grid', gap: 12 }}>
-            <input
-              value={thoughtTitle}
-              onChange={(e) => setThoughtTitle(e.target.value)}
-              placeholder="Thought title, optional"
-              maxLength={90}
-            />
-
-            <textarea
-              value={thoughtText}
-              onChange={(e) => setThoughtText(e.target.value)}
-              placeholder="What is floating around in your Bubble today?"
-              maxLength={1200}
-              style={{ minHeight: 130 }}
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-              <label>
-                Mood
-                <select value={thoughtMood} onChange={(e) => setThoughtMood(e.target.value)}>
-                  <option>😊 Happy</option>
-                  <option>😢 Sad</option>
-                  <option>🌈 Excited</option>
-                  <option>🤔 Thinking</option>
-                  <option>🧸 Cozy</option>
-                  <option>💤 Sleepy</option>
-                  <option>⭐ Proud</option>
-                  <option>🫧 Dreamy</option>
-                </select>
-              </label>
-
-              <label>
-                Visibility
-                <select value={thoughtVisibility} onChange={(e) => setThoughtVisibility(e.target.value)}>
-                  <option value="private">🔒 Keep in My Bubble</option>
-                  <option value="friends">🧸 Friends Only</option>
-                  <option value="public">🌍 Share with Thought Bubbles</option>
-                </select>
-              </label>
-            </div>
-
-            <button type="submit" className="primary" disabled={savingThought}>
-              {savingThought ? 'Saving Thought...' : 'Save Thought'}
-            </button>
-          </form>
-
-          {thoughtStatus && (
-            <p className={thoughtStatus.includes('saved') || thoughtStatus.includes('shared') || thoughtStatus.includes('deleted') ? 'success' : 'error'}>
-              {thoughtStatus}
-            </p>
-          )}
-
-          <div style={{ display: 'grid', gap: 12, marginTop: 18 }}>
-            {myThoughts.length === 0 && (
-              <div className="notice">No thoughts saved yet. Tiny cloud, big possibilities.</div>
-            )}
-
-            {myThoughts.map((thought) => (
-              <article
-                className="bubble"
-                key={thought.id}
-                style={{
-                  padding: 16,
-                  background: '#ffffff',
-                  border: thought.visibility === 'public' ? '2px solid #bfdbfe' : '1px solid rgba(191,219,254,.72)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <strong style={{ color: '#1e3a8a' }}>
-                    {thought.mood || '🫧'} {thought.title || 'Thought Bubble'}
-                  </strong>
-                  <span className="muted">
-                    {thought.visibility === 'public'
-                      ? '🌍 Public'
-                      : thought.visibility === 'friends'
-                        ? '🧸 Friends Only'
-                        : '🔒 Private'}
-                  </span>
-                </div>
-
-                <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{thought.text}</p>
-
-                <div className="social-action-row">
-                  {thought.visibility === 'public' && <span className="muted">❤️ {thought.hugCount || 0} hugs</span>}
-                  <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
-                    🗑️ Delete thought
-                  </SoftActionButton>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-;
