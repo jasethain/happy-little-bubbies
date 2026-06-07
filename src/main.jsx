@@ -28,7 +28,6 @@ import { auth, db, storage } from './firebase';
 import {
   Bell,
   Gift,
-  Heart,
   Home,
   Inbox,
   Lock,
@@ -7449,7 +7448,7 @@ function ThoughtBubblesRoom({ member }) {
 
               <div className="social-action-row" style={{ marginTop: 12 }}>
                 <SoftActionButton onClick={() => sendThoughtReaction(thought, 'hug')} disabled={alreadyHugged}>
-                  🤗 {alreadyHugged ? 'Hug sent' : 'Hug'} ({thought.hugCount || 0})
+                  🤗 {alreadyHugged ? 'Hug sent' : 'Send a Hug'} ({thought.hugCount || 0})
                 </SoftActionButton>
 
                 <SoftActionButton onClick={() => sendThoughtReaction(thought, 'sunshine')} disabled={alreadySunshine}>
@@ -7727,6 +7726,8 @@ function ProfileRoom({ member, setMember }) {
         visibility: thoughtVisibility,
         hugCount: 0,
         huggedBy: [],
+        sunshineCount: 0,
+        sunshineBy: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
