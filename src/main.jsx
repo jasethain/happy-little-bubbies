@@ -7428,11 +7428,16 @@ function MemoryBookRoom({ member, onBack = null }) {
     const unsubscribers = [];
 
     unsubscribers.push(onSnapshot(
-      query(collection(db, 'memoryBook'), where('ownerUid', '==', member.uid), orderBy('createdAt', 'desc')),
+      query(collection(db, 'memoryBook'), where('ownerUid', '==', member.uid)),
       (snapshot) => {
         setManualMemories(snapshot.docs
           .map((memoryDoc) => ({ id: memoryDoc.id, ...memoryDoc.data() }))
-          .filter((memory) => memory.ownerUid === member.uid));
+          .filter((memory) => memory.ownerUid === member.uid)
+          .sort((a, b) => {
+            const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+            const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+            return bTime - aTime;
+          }));
       },
       (err) => setStatus(err.message || 'Could not load Memory Book entries.')
     ));
