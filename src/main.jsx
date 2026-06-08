@@ -21,6 +21,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -247,6 +248,40 @@ function Logo({ goHome }) {
 function formatDate(value) {
   if (!value?.toDate) return 'just now';
   return value.toDate().toLocaleString();
+}
+
+function friendlyAuthError(error) {
+  const rawMessage = String(error?.message || error || 'Something went wrong.');
+  const code = String(error?.code || '').toLowerCase();
+  const message = rawMessage
+    .replace(/^firebase:\s*/i, '')
+    .replace(/\s*\(auth\/[^)]+\)\.?/gi, '')
+    .replace(/auth\/[a-z0-9-]+/gi, '')
+    .trim();
+
+  if (code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')) {
+    return 'The email or password is not correct.';
+  }
+  if (code.includes('email-already-in-use')) {
+    return 'That email is already being used. Try signing in instead.';
+  }
+  if (code.includes('weak-password')) {
+    return 'Please choose a stronger password.';
+  }
+  if (code.includes('invalid-email')) {
+    return 'Please enter a valid email address.';
+  }
+  if (code.includes('too-many-requests')) {
+    return 'Too many attempts. Please wait a little while and try again.';
+  }
+  if (code.includes('network-request-failed')) {
+    return 'Network error. Please check your connection and try again.';
+  }
+  if (code.includes('missing-password')) {
+    return 'Please enter your password.';
+  }
+
+  return message || 'Something went wrong. Please try again.';
 }
 
 function makeInviteCode() {
@@ -1626,6 +1661,8 @@ function AuthGate({ setMember }) {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetStatus, setResetStatus] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [biologicalAgeConfirmed, setBiologicalAgeConfirmed] = useState(false);
   const [communityAgreementAccepted, setCommunityAgreementAccepted] = useState(false);
@@ -1704,7 +1741,7 @@ function AuthGate({ setMember }) {
 
       setMember(profile);
     } catch (err) {
-      setError(err.message || 'Something went wrong.');
+      setError(friendlyAuthError(err));
     }
   }
 
@@ -1720,7 +1757,25 @@ function AuthGate({ setMember }) {
       if (!profile) throw new Error('Account exists, but no Happy Little Bubbies profile was found.');
       setMember(profile);
     } catch (err) {
-      setError(err.message || 'Something went wrong.');
+      setError(friendlyAuthError(err));
+    }
+  }
+
+  async function sendResetPassword() {
+    setError('');
+    setResetStatus('');
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Enter your email address first, then tap Reset password.');
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setResetStatus('Password reset email sent. Please check your inbox.');
+    } catch (err) {
+      setError(friendlyAuthError(err));
     }
   }
 
@@ -1785,8 +1840,36 @@ function AuthGate({ setMember }) {
           )}
 
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" required />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" required />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setShowPassword((current) => !current)}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
 
+          {!isRegistering && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={sendResetPassword}
+            >
+              Reset password
+            </button>
+          )}
+
+          {resetStatus && <p className="success">{resetStatus}</p>}
           {error && <p className="error">{error}</p>}
 
           <button className="primary" disabled={isRegistering && (!biologicalAgeConfirmed || !communityAgreementAccepted)}>
