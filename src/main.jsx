@@ -1057,24 +1057,63 @@ function SoftActionButton({ children, onClick, disabled = false, danger = false,
   );
 }
 
+function BackButton({ onClick, children = '← Back to My Bubble' }) {
+  return (
+    <button
+      type="button"
+      className="link-button"
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        width: 'fit-content',
+        marginBottom: 14,
+        fontWeight: 950,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function safeMemoryDocId(member, payload = {}) {
+  if (!member?.uid || !payload.sourceId) return '';
+  const sourceType = String(payload.sourceType || 'starred');
+  const sourceId = String(payload.sourceId || '');
+  return `${member.uid}_${sourceType}_${sourceId}`.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 140);
+}
 
 async function addMemoryBookItem(member, payload = {}) {
-  if (!member?.uid) return;
+  if (!member?.uid) {
+    throw new Error('Please sign in before adding memories.');
+  }
 
   const title = String(payload.title || 'Special Memory').trim() || 'Special Memory';
   const note = String(payload.note || '').trim();
-
-  await addDoc(collection(db, 'memoryBook'), {
+  const sourceType = payload.sourceType || 'starred';
+  const sourceId = payload.sourceId || '';
+  const memoryData = {
     ownerUid: member.uid,
     ownerName: member.displayName || 'Happy Little Bubby',
     title,
     note,
     icon: payload.icon || '⭐',
     imageUrl: payload.imageUrl || '',
-    sourceType: payload.sourceType || 'starred',
-    sourceId: payload.sourceId || '',
+    sourceType,
+    sourceId,
     createdAt: serverTimestamp(),
-  });
+    updatedAt: serverTimestamp(),
+  };
+
+  const deterministicId = safeMemoryDocId(member, { sourceType, sourceId });
+  if (deterministicId) {
+    await setDoc(doc(db, 'memoryBook', deterministicId), memoryData, { merge: true });
+    return deterministicId;
+  }
+
+  const created = await addDoc(collection(db, 'memoryBook'), memoryData);
+  return created.id;
 }
 
 
@@ -1193,7 +1232,8 @@ function StarMemoryButton({ member, title = 'Special Memory', note = '', icon = 
       await addMemoryBookItem(member, { title, note, icon, imageUrl, sourceType, sourceId });
       setSaved(true);
     } catch (err) {
-      window.alert(err.message || 'Could not add this to your Memory Book.');
+      console.error('Memory Book save failed:', err);
+      window.alert(err.message || 'Could not add this to your Memory Book. Please check Firestore rules for memoryBook ownerUid access.');
     } finally {
       setSaving(false);
     }
@@ -2242,7 +2282,7 @@ function GalleryPhotoModal({ photo, onClose, canRemove = false, onRemove }) {
               </SoftActionButton>
             )}
             <button type="button" className="primary" onClick={onClose} style={{ minWidth: 130 }}>
-              Close
+              ← Back
             </button>
           </div>
         </div>
@@ -2251,7 +2291,7 @@ function GalleryPhotoModal({ photo, onClose, canRemove = false, onRemove }) {
   );
 }
 
-function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
+function GalleryThumbnail({ photo, member, onOpen, canRemove, onRemove }) {
   if (!photo?.imageUrl) return null;
 
   return (
@@ -2298,7 +2338,7 @@ function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
 
       <div className="social-action-row" style={{ marginTop: 8 }}>
           <StarMemoryButton
-            member={typeof member !== 'undefined' ? member : null}
+            member={member}
             title="📷 Favourite photo"
             note="A photo you wanted to keep in your Memory Book."
             icon="📷"
@@ -6367,7 +6407,7 @@ function NaughtyBabyAdminQueue({ member }) {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="primary" onClick={() => updateReport(report, 'Under Review')}>Review</button>
             <button className="link-button" onClick={() => updateReport(report, 'Resolved')}>Resolve</button>
-            <button className="link-button" onClick={() => updateReport(report, 'Closed')}>Close</button>
+            <button className="link-button" onClick={() => updateReport(report, 'Closed')}>← Back</button>
           </div>
         </div>
       ))}
@@ -7362,7 +7402,7 @@ function NaughtyBabyRoom({ member }) {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <button className="primary" onClick={() => updateReport(report, 'Under Review')}>Review</button>
                 <button className="link-button" onClick={() => updateReport(report, 'Resolved')}>Resolve</button>
-                <button className="link-button" onClick={() => updateReport(report, 'Closed')}>Close</button>
+                <button className="link-button" onClick={() => updateReport(report, 'Closed')}>← Back</button>
               </div>
             )}
           </div>
@@ -7373,7 +7413,7 @@ function NaughtyBabyRoom({ member }) {
 }
 
 
-function MemoryBookRoom({ member }) {
+function MemoryBookRoom({ member, onBack = null }) {
   const [manualMemories, setManualMemories] = useState([]);
   const [galleryPhotos, setGalleryPhotos] = useState([]);
   const [friendships, setFriendships] = useState([]);
@@ -7388,7 +7428,7 @@ function MemoryBookRoom({ member }) {
     const unsubscribers = [];
 
     unsubscribers.push(onSnapshot(
-      query(collection(db, 'memoryBook'), orderBy('createdAt', 'desc')),
+      query(collection(db, 'memoryBook'), where('ownerUid', '==', member.uid), orderBy('createdAt', 'desc')),
       (snapshot) => {
         setManualMemories(snapshot.docs
           .map((memoryDoc) => ({ id: memoryDoc.id, ...memoryDoc.data() }))
@@ -7515,6 +7555,7 @@ function MemoryBookRoom({ member }) {
 
   return (
     <section className="room memory-room">
+      {onBack && <BackButton onClick={onBack}>← Back to My Bubble</BackButton>}
       <div className="memory-cover">
         <div className="memory-book-badge">📔</div>
         <div>
@@ -8181,6 +8222,7 @@ function MembersRoom({ member, onPrivateMessageUser }) {
                       <GalleryThumbnail
                         key={photo.id}
                         photo={photo}
+                        member={member}
                         onOpen={setOpenGalleryPhoto}
                       />
                     ))}
@@ -8669,6 +8711,16 @@ function ThoughtBubblesRoom({ member }) {
                   💬 Comment ({thoughtComments.length})
                 </SoftActionButton>
 
+                <StarMemoryButton
+                  member={member}
+                  title={`🫧 ${thought.title || 'Thought Bubble'}`}
+                  note={thought.text || 'A Thought Bubble you wanted to keep.'}
+                  icon="🫧"
+                  imageUrl={thought.imageUrl || ''}
+                  sourceType="thought-bubble"
+                  sourceId={thought.id}
+                />
+
                 {mine && (
                   <SoftActionButton danger onClick={() => deletePublicThought(thought)}>
                     🗑️ Delete
@@ -8703,6 +8755,16 @@ function ThoughtBubblesRoom({ member }) {
                         <span className="muted" style={{ fontSize: 10, lineHeight: 1.2 }}>
                           {formatDate(comment.createdAt)}
                         </span>
+                        <div className="social-action-row" style={{ marginTop: 8 }}>
+                          <StarMemoryButton
+                            member={member}
+                            title={`💬 Comment from ${comment.fromName || 'Happy Little Bubby'}`}
+                            note={comment.text || 'A kind comment you wanted to keep.'}
+                            icon="💬"
+                            sourceType="thought-comment"
+                            sourceId={comment.id}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -8804,6 +8866,7 @@ function ProfileRoom({ member, setMember, counts }) {
   const [thoughtStatus, setThoughtStatus] = useState('');
   const [savingThought, setSavingThought] = useState(false);
   const [editingBubble, setEditingBubble] = useState(false);
+  const [activeBubblePanel, setActiveBubblePanel] = useState('home');
   const alertsSectionRef = useRef(null);
 
   useEffect(() => {
@@ -9138,6 +9201,28 @@ function ProfileRoom({ member, setMember, counts }) {
     setStatus('High-quality cartoon avatar created. Click Save My Bubble to keep it.');
   }
 
+  if (activeBubblePanel === 'memory') {
+    return (
+      <section className="room">
+        <BackButton onClick={() => setActiveBubblePanel('home')}>← Back to My Bubble</BackButton>
+        <MemoryBookRoom member={member} />
+      </section>
+    );
+  }
+
+  if (activeBubblePanel === 'alerts') {
+    return (
+      <section className="room">
+        <BackButton onClick={() => setActiveBubblePanel('home')}>← Back to My Bubble</BackButton>
+        <div className="profile" style={{ marginBottom: 20 }}>
+          <h2 style={{ marginTop: 0 }}>🍼 My Little Alerts</h2>
+          <p className="muted">Your hugs, sunshine, friend requests, Secret Little Letters, and friend chat notices are tucked safely inside My Bubble.</p>
+        </div>
+        <NotificationsRoom member={member} counts={counts || {}} />
+      </section>
+    );
+  }
+
   return (
     <section className="room">
       <div
@@ -9156,7 +9241,7 @@ function ProfileRoom({ member, setMember, counts }) {
         <button
           type="button"
           className="link-button"
-          onClick={() => alertsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          onClick={() => setActiveBubblePanel('alerts')}
           title="Jump to My Little Alerts"
           style={{
             display: 'inline-flex',
@@ -9311,6 +9396,15 @@ function ProfileRoom({ member, setMember, counts }) {
 
               <div className="social-action-row">
                 {thought.visibility === 'public' && <span className="muted">{reactionSummary(thought)}</span>}
+                <StarMemoryButton
+                  member={member}
+                  title={`🫧 ${thought.title || 'My Thought'}`}
+                  note={thought.text || 'A private thought you wanted to remember.'}
+                  icon="🫧"
+                  imageUrl={thought.imageUrl || ''}
+                  sourceType="my-thought"
+                  sourceId={thought.id}
+                />
                 <SoftActionButton danger onClick={() => deleteMyThought(thought)}>
                   🗑️ Delete thought
                 </SoftActionButton>
@@ -9393,9 +9487,7 @@ function ProfileRoom({ member, setMember, counts }) {
       <div className="profile" style={{ marginTop: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0 }}>Edit My Bubble</h3>
-          <button type="button" className="link-button" onClick={() => setEditingBubble(false)}>
-            Close Edit Bubble
-          </button>
+          <BackButton onClick={() => setEditingBubble(false)}>← Back to My Bubble</BackButton>
         </div>
 
         <form className="form compact" onSubmit={saveProfile}>
@@ -9722,22 +9814,37 @@ function ProfileRoom({ member, setMember, counts }) {
 
       <div
         ref={alertsSectionRef}
-        id="my-little-alerts"
-        style={{ marginTop: 24, scrollMarginTop: 110 }}
+        id="my-bubble-open-areas"
+        style={{
+          marginTop: 24,
+          scrollMarginTop: 110,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 16,
+        }}
       >
-        <div className="profile" style={{ marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0 }}>🍼 My Little Alerts</h2>
-          <p className="muted">Your hugs, sunshine, friend requests, Secret Little Letters, and friend chat notices are tucked safely inside My Bubble.</p>
-        </div>
-        <NotificationsRoom member={member} counts={counts || {}} />
-      </div>
+        <button
+          type="button"
+          className="feature-card"
+          onClick={() => setActiveBubblePanel('alerts')}
+          style={{ textAlign: 'left' }}
+        >
+          <div className="tile-art-icon" style={{ fontSize: 42 }}>🍼</div>
+          <h3>Open Little Alerts</h3>
+          <p>Your hugs, sunshine, friend requests, Secret Little Letters, and chat notices.</p>
+          <Badge count={counts?.total || 0} />
+        </button>
 
-      <div style={{ marginTop: 24 }}>
-        <div className="profile" style={{ marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0 }}>📔 Memory Book</h2>
-          <p className="muted">Your scrapbook is now part of My Bubble, so your memories stay tucked in with your profile.</p>
-        </div>
-        <MemoryBookRoom member={member} />
+        <button
+          type="button"
+          className="feature-card"
+          onClick={() => setActiveBubblePanel('memory')}
+          style={{ textAlign: 'left' }}
+        >
+          <div className="tile-art-icon" style={{ fontSize: 42 }}>📔</div>
+          <h3>Open Memory Book</h3>
+          <p>Your private scrapbook of starred posts, photos, comments, friends, stories, and special moments.</p>
+        </button>
       </div>
 
       <div className="profile" style={{ marginTop: 20, borderColor: '#fecdd3', background: '#fff1f2' }}>
