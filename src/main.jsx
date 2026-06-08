@@ -20,6 +20,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -1073,6 +1074,95 @@ async function addMemoryBookItem(member, payload = {}) {
     createdAt: serverTimestamp(),
   });
 }
+
+
+async function deleteCurrentUserAccount(member, setMember) {
+  const currentUser = auth.currentUser;
+  if (!currentUser || !member?.uid) {
+    window.alert('Please sign in again before deleting your account.');
+    return;
+  }
+
+  const firstConfirm = window.confirm(
+    'Are you sure you want to delete your Happy Little Bubbies account? This cannot be undone.'
+  );
+  if (!firstConfirm) return;
+
+  const typed = window.prompt('Type DELETE to permanently delete your account.');
+  if (typed !== 'DELETE') {
+    window.alert('Account deletion cancelled.');
+    return;
+  }
+
+  try {
+    const uid = member.uid;
+
+    const collectionsToClean = [
+      ['users', uid],
+      ['userProfiles', uid],
+      ['presence', uid],
+      ['members', uid],
+    ];
+
+    await Promise.all(collectionsToClean.map(async ([collectionName, docId]) => {
+      try {
+        await deleteDoc(doc(db, collectionName, docId));
+      } catch (err) {
+        console.warn(`Could not delete ${collectionName}/${docId}:`, err);
+      }
+    }));
+
+    const usernameKey = normaliseDisplayNameKey(member.displayName);
+    if (usernameKey) {
+      try {
+        const usernameDoc = await getDoc(doc(db, 'usernames', usernameKey));
+        if (usernameDoc.exists() && usernameDoc.data()?.uid === uid) {
+          await deleteDoc(doc(db, 'usernames', usernameKey));
+        }
+      } catch (err) {
+        console.warn('Could not release username:', err);
+      }
+    }
+
+    const cleanupQueries = [
+      ['memoryBook', 'ownerUid'],
+      ['bubblePhotos', 'ownerUid'],
+      ['thoughtBubbles', 'ownerUid'],
+      ['thoughtComments', 'authorUid'],
+      ['privateMessages', 'fromUid'],
+      ['privateMessages', 'toUid'],
+      ['littleAlerts', 'toUid'],
+      ['friendRequests', 'fromUid'],
+      ['friendRequests', 'toUid'],
+    ];
+
+    await Promise.all(cleanupQueries.map(async ([collectionName, fieldName]) => {
+      try {
+        const snap = await getDocs(query(collection(db, collectionName), where(fieldName, '==', uid)));
+        await Promise.all(snap.docs.map((item) => deleteDoc(doc(db, collectionName, item.id))));
+      } catch (err) {
+        console.warn(`Could not clean ${collectionName} by ${fieldName}:`, err);
+      }
+    }));
+
+    try {
+      await deleteUser(currentUser);
+    } catch (err) {
+      if (String(err?.code || '').includes('requires-recent-login')) {
+        window.alert('For security, please sign out and sign back in, then delete your account again.');
+        return;
+      }
+      throw err;
+    }
+
+    setMember(null);
+    window.history.pushState({}, '', '/');
+    window.alert('Your account has been deleted.');
+  } catch (err) {
+    window.alert(friendlyAuthError(err));
+  }
+}
+
 
 function StarMemoryButton({ member, title = 'Special Memory', note = '', icon = '⭐', imageUrl = '', sourceType = 'starred', sourceId = '' }) {
   const [saving, setSaving] = useState(false);
@@ -8357,7 +8447,7 @@ function ThoughtBubblesRoom({ member }) {
 }
 
 
-function ProfileRoom({ member, setMember, counts }) {
+function ProfileRoom({ member, setMember, setMember, counts }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
   const genderOptions = [
@@ -9369,6 +9459,20 @@ function ProfileRoom({ member, setMember, counts }) {
         </div>
         <MemoryBookRoom member={member} />
       </div>
+
+      <div className="profile" style={{ marginTop: 20, borderColor: '#fecdd3', background: '#fff1f2' }}>
+        <h3>🗑️ Delete my account</h3>
+        <p className="muted">
+          This permanently deletes your Happy Little Bubbies login and removes your Bubble profile, memories, alerts, photos, thoughts, messages and friend requests that belong to your account.
+        </p>
+        <SoftActionButton
+          danger
+          onClick={() => deleteCurrentUserAccount(member, setMember)}
+        >
+          Delete my account
+        </SoftActionButton>
+      </div>
+
     </section>
   );
 }
