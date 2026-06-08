@@ -1314,6 +1314,341 @@ function alertText(alert = {}) {
   return alert.message || alert.title || 'New Little Alert';
 }
 
+
+
+const ACHIEVEMENT_DEFINITIONS = [
+  {
+    id: 'first-thought',
+    icon: '🌟',
+    title: 'First Thought',
+    description: 'Share your first Thought Bubble.',
+    category: 'Thoughts',
+    target: 1,
+    getValue: (stats) => stats.thoughtCount,
+  },
+  {
+    id: 'first-story',
+    icon: '📖',
+    title: 'First Story',
+    description: 'Create, receive, or read your first bedtime story moment.',
+    category: 'Stories',
+    target: 1,
+    getValue: (stats) => stats.storyCount,
+  },
+  {
+    id: 'first-friend',
+    icon: '🧸',
+    title: 'First Friend',
+    description: 'Make your first nursery friend.',
+    category: 'Friendship',
+    target: 1,
+    getValue: (stats) => stats.friendCount,
+  },
+  {
+    id: 'five-friends',
+    icon: '🐣',
+    title: 'Playdate Circle',
+    description: 'Make 5 nursery friends.',
+    category: 'Friendship',
+    target: 5,
+    getValue: (stats) => stats.friendCount,
+  },
+  {
+    id: 'first-memory',
+    icon: '⭐',
+    title: 'First Memory',
+    description: 'Save your first special moment to Memory Book.',
+    category: 'Memories',
+    target: 1,
+    getValue: (stats) => stats.memoryCount,
+  },
+  {
+    id: 'ten-memories',
+    icon: '📔',
+    title: 'Scrapbook Starter',
+    description: 'Collect 10 Memory Book moments.',
+    category: 'Memories',
+    target: 10,
+    getValue: (stats) => stats.memoryCount,
+  },
+  {
+    id: 'fifty-memories',
+    icon: '🌈',
+    title: 'Keeper of Memories',
+    description: 'Collect 50 Memory Book moments.',
+    category: 'Memories',
+    target: 50,
+    getValue: (stats) => stats.memoryCount,
+  },
+  {
+    id: 'first-kind-reaction',
+    icon: '🤗',
+    title: 'First Kind Reaction',
+    description: 'Receive your first Hug, Sunshine, or Warm Cuddle.',
+    category: 'Kindness',
+    target: 1,
+    getValue: (stats) => stats.kindReactionCount,
+  },
+  {
+    id: 'one-hundred-kind-reactions',
+    icon: '☁️',
+    title: 'Community Comforter',
+    description: 'Receive 100 kind reactions from the community.',
+    category: 'Kindness',
+    target: 100,
+    getValue: (stats) => stats.kindReactionCount,
+  },
+  {
+    id: 'one-month-nursery',
+    icon: '🎉',
+    title: 'One Month in Nursery',
+    description: 'Spend your first month in Happy Little Bubbies.',
+    category: 'Journey',
+    target: 30,
+    getValue: (stats) => stats.daysInNursery,
+  },
+  {
+    id: 'six-months-nursery',
+    icon: '🎂',
+    title: 'Six Months in Nursery',
+    description: 'Spend six months in the nursery.',
+    category: 'Journey',
+    target: 182,
+    getValue: (stats) => stats.daysInNursery,
+  },
+  {
+    id: 'one-year-nursery',
+    icon: '🏡',
+    title: 'One Year in Nursery',
+    description: 'Celebrate one full year in Happy Little Bubbies.',
+    category: 'Journey',
+    target: 365,
+    getValue: (stats) => stats.daysInNursery,
+  },
+];
+
+const KIND_REACTION_ALERT_TYPES = new Set([
+  'thought-hug',
+  'thought-sunshine',
+  'thought-cuddle',
+  'private-message-reaction',
+  'friend-message-reaction',
+  'nursery-chat-reaction',
+]);
+
+function timestampToMillis(value) {
+  if (!value) return 0;
+  if (value.toMillis) return value.toMillis();
+  if (value.toDate) return value.toDate().getTime();
+  if (typeof value === 'number') return value;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function daysSinceTimestamp(value) {
+  const millis = timestampToMillis(value);
+  if (!millis) return 0;
+  return Math.max(0, Math.floor((Date.now() - millis) / 86400000));
+}
+
+function computeAchievementProgress(definition, stats) {
+  const rawValue = Number(definition.getValue(stats) || 0);
+  const value = Math.max(0, rawValue);
+  const target = Math.max(1, Number(definition.target || 1));
+  return {
+    ...definition,
+    value,
+    target,
+    unlocked: value >= target,
+    percent: Math.min(100, Math.round((value / target) * 100)),
+  };
+}
+
+function useAchievementStats(member) {
+  const [stats, setStats] = useState({
+    friendCount: 0,
+    memoryCount: 0,
+    storyCount: 0,
+    thoughtCount: 0,
+    kindReactionCount: 0,
+    daysInNursery: daysSinceTimestamp(member?.createdAt),
+    recentActivity: [],
+  });
+
+  useEffect(() => {
+    if (!member?.uid) return;
+
+    const uid = member.uid;
+    const unsubscribers = [];
+
+    function updateStats(partial) {
+      setStats((current) => ({
+        ...current,
+        ...partial,
+        daysInNursery: daysSinceTimestamp(member.createdAt),
+      }));
+    }
+
+    unsubscribers.push(onSnapshot(
+      collection(db, 'friends'),
+      (snapshot) => {
+        const myFriends = snapshot.docs
+          .map((friendDoc) => ({ id: friendDoc.id, ...friendDoc.data() }))
+          .filter((friend) => friend.userIds?.includes(uid))
+          .filter((friend) => !friend.removed);
+        updateStats({ friendCount: myFriends.length });
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      collection(db, 'memoryBook'),
+      (snapshot) => {
+        const memories = snapshot.docs
+          .map((memoryDoc) => ({ id: memoryDoc.id, ...memoryDoc.data() }))
+          .filter((memory) => memory.ownerUid === uid);
+        updateStats({ memoryCount: memories.length });
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      collection(db, 'stories'),
+      (snapshot) => {
+        const stories = snapshot.docs
+          .map((storyDoc) => ({ id: storyDoc.id, ...storyDoc.data() }))
+          .filter((story) => !story.setupOnly)
+          .filter((story) => story.requesterUid === uid || story.readerUid === uid || story.createdByUid === uid);
+        updateStats({ storyCount: stories.length });
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      collection(db, 'thoughtBubbles'),
+      (snapshot) => {
+        const thoughts = snapshot.docs
+          .map((thoughtDoc) => ({ id: thoughtDoc.id, ...thoughtDoc.data() }))
+          .filter((thought) => thought.ownerUid === uid || thought.authorUid === uid || thought.createdByUid === uid);
+        updateStats({ thoughtCount: thoughts.length });
+      },
+      () => {}
+    ));
+
+    unsubscribers.push(onSnapshot(
+      collection(db, 'littleAlerts'),
+      (snapshot) => {
+        const reactions = snapshot.docs
+          .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
+          .filter((alert) => alert.toUid === uid)
+          .filter((alert) => KIND_REACTION_ALERT_TYPES.has(alert.type));
+        updateStats({ kindReactionCount: reactions.length });
+      },
+      () => {}
+    ));
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [member?.uid, member?.createdAt]);
+
+  return stats;
+}
+
+function AchievementBadgeCard({ achievement }) {
+  return (
+    <div
+      style={{
+        padding: 16,
+        borderRadius: 24,
+        background: achievement.unlocked
+          ? 'linear-gradient(135deg, rgba(255,255,255,.98), rgba(252,231,243,.88), rgba(219,234,254,.82))'
+          : 'rgba(255,255,255,.72)',
+        border: achievement.unlocked ? '2px solid rgba(244,114,182,.45)' : '1px solid rgba(191,219,254,.72)',
+        boxShadow: achievement.unlocked ? '0 16px 34px rgba(244,114,182,.16)' : '0 10px 22px rgba(30,58,138,.06)',
+        opacity: achievement.unlocked ? 1 : 0.72,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 20,
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 28,
+            background: achievement.unlocked ? '#ffffff' : '#f8fafc',
+            boxShadow: 'inset 0 0 0 1px rgba(191,219,254,.68)',
+            flexShrink: 0,
+          }}
+        >
+          {achievement.unlocked ? achievement.icon : '🔒'}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <strong style={{ color: '#1e3a8a', fontSize: 17 }}>{achievement.title}</strong>
+          <p className="muted" style={{ margin: '4px 0 10px' }}>{achievement.description}</p>
+          <div style={{ height: 10, background: '#e0f2fe', borderRadius: 999, overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${achievement.percent}%`,
+                height: '100%',
+                borderRadius: 999,
+                background: achievement.unlocked ? 'linear-gradient(90deg,#f9a8d4,#60a5fa)' : '#93c5fd',
+              }}
+            />
+          </div>
+          <small className="muted" style={{ display: 'block', marginTop: 8, fontWeight: 900 }}>
+            {achievement.unlocked ? 'Unlocked' : `${Math.min(achievement.value, achievement.target)} / ${achievement.target}`}
+          </small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AchievementsRoom({ member }) {
+  const stats = useAchievementStats(member);
+  const achievements = ACHIEVEMENT_DEFINITIONS.map((definition) => computeAchievementProgress(definition, stats));
+  const unlocked = achievements.filter((achievement) => achievement.unlocked);
+  const locked = achievements.filter((achievement) => !achievement.unlocked);
+  const nextAchievements = locked.slice(0, 3);
+
+  return (
+    <div>
+      <div className="memory-cover">
+        <div className="memory-book-badge">🏆</div>
+        <div>
+          <h2 style={{ margin: 0 }}>My Achievements</h2>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Sweet little milestones for friendship, kindness, stories, thoughts, memories, and time in the nursery. No leaderboards. No pressure. Just happy progress.
+          </p>
+        </div>
+      </div>
+
+      <div className="memory-stats">
+        <div><strong>{unlocked.length}</strong><span>Unlocked</span></div>
+        <div><strong>{stats.friendCount}</strong><span>Friends</span></div>
+        <div><strong>{stats.memoryCount}</strong><span>Memories</span></div>
+        <div><strong>{stats.kindReactionCount}</strong><span>Kind Reactions</span></div>
+      </div>
+
+      {nextAchievements.length > 0 && (
+        <div className="profile" style={{ marginBottom: 18 }}>
+          <h3 style={{ marginTop: 0 }}>🌱 Next little goals</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {nextAchievements.map((achievement) => <AchievementBadgeCard key={achievement.id} achievement={achievement} />)}
+          </div>
+        </div>
+      )}
+
+      <div className="profile">
+        <h3 style={{ marginTop: 0 }}>🏅 Badge shelf</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          {achievements.map((achievement) => <AchievementBadgeCard key={achievement.id} achievement={achievement} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
 function SocialBabyPolish() {
   useEffect(() => {
     const fontId = 'hlb-comic-neue-font';
@@ -9206,6 +9541,15 @@ function ProfileRoom({ member, setMember, counts }) {
     setStatus('High-quality cartoon avatar created. Click Save My Bubble to keep it.');
   }
 
+  if (activeBubblePanel === 'achievements') {
+    return (
+      <section className="room">
+        <BackButton onClick={() => setActiveBubblePanel('home')}>← Back to My Bubble</BackButton>
+        <AchievementsRoom member={member} />
+      </section>
+    );
+  }
+
   if (activeBubblePanel === 'memory') {
     return (
       <section className="room">
@@ -9838,6 +10182,17 @@ function ProfileRoom({ member, setMember, counts }) {
           <h3>Open Little Alerts</h3>
           <p>Your hugs, sunshine, friend requests, Secret Little Letters, and chat notices.</p>
           <Badge count={counts?.total || 0} />
+        </button>
+
+        <button
+          type="button"
+          className="feature-card"
+          onClick={() => setActiveBubblePanel('achievements')}
+          style={{ textAlign: 'left' }}
+        >
+          <div className="tile-art-icon" style={{ fontSize: 42 }}>🏆</div>
+          <h3>Open Achievements</h3>
+          <p>See your friendship, kindness, story, thought, memory, and nursery journey badges.</p>
         </button>
 
         <button
