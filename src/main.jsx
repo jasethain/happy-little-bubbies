@@ -895,7 +895,7 @@ function useNotificationCounts(member) {
       const unreadThoughtReactions = snapshot.docs
         .map((item) => item.data())
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type)).length;
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined', 'nursery-chat-comment', 'nursery-chat-reaction'].includes(alert.type)).length;
 
       setCounts((prev) => {
         const next = { ...prev, thoughtHugs: unreadThoughtReactions };
@@ -967,6 +967,8 @@ async function initialiseFirestoreCollections(member) {
   await setDoc(doc(db, 'thoughtBubbles', 'setup-thought-bubble'), setupDoc, { merge: true });
   await setDoc(doc(db, 'thoughtComments', 'setup-thought-comment'), setupDoc, { merge: true });
   await setDoc(doc(db, 'littleAlerts', 'setup-little-alert'), setupDoc, { merge: true });
+  await setDoc(doc(db, 'chatMessageComments', 'setup-chat-message-comment'), setupDoc, { merge: true });
+  await setDoc(doc(db, 'chatMessageReactions', 'setup-chat-message-reaction'), setupDoc, { merge: true });
 }
 
 
@@ -1097,14 +1099,26 @@ async function deleteCurrentUserAccount(member, setMember) {
   try {
     const uid = member.uid;
 
-    const collectionsToClean = [
+    // Firebase Auth requires a recent login before deleting the login itself.
+    // Check that first so the user gets a clear message instead of a half-delete.
+    try {
+      await deleteUser(currentUser);
+    } catch (err) {
+      if (String(err?.code || '').includes('requires-recent-login')) {
+        window.alert('For security, Firebase needs a fresh sign in before account deletion. Please sign out, sign back in, then tap Delete my account again.');
+        return;
+      }
+      throw err;
+    }
+
+    const directDocsToClean = [
       ['users', uid],
       ['userProfiles', uid],
       ['presence', uid],
       ['members', uid],
     ];
 
-    await Promise.all(collectionsToClean.map(async ([collectionName, docId]) => {
+    await Promise.all(directDocsToClean.map(async ([collectionName, docId]) => {
       try {
         await deleteDoc(doc(db, collectionName, docId));
       } catch (err) {
@@ -1129,11 +1143,20 @@ async function deleteCurrentUserAccount(member, setMember) {
       ['bubblePhotos', 'ownerUid'],
       ['thoughtBubbles', 'ownerUid'],
       ['thoughtComments', 'authorUid'],
+      ['chatMessages', 'senderUid'],
+      ['chatMessageComments', 'authorUid'],
       ['privateMessages', 'fromUid'],
       ['privateMessages', 'toUid'],
+      ['friendChats', 'lastSenderUid'],
       ['littleAlerts', 'toUid'],
+      ['littleAlerts', 'fromUid'],
       ['friendRequests', 'fromUid'],
       ['friendRequests', 'toUid'],
+      ['mentorProfiles', 'mentorUid'],
+      ['mentorRequests', 'requesterUid'],
+      ['swapMeet', 'ownerUid'],
+      ['reports', 'createdBy'],
+      ['naughtyBabyReports', 'createdBy'],
     ];
 
     await Promise.all(cleanupQueries.map(async ([collectionName, fieldName]) => {
@@ -1146,13 +1169,9 @@ async function deleteCurrentUserAccount(member, setMember) {
     }));
 
     try {
-      await deleteUser(currentUser);
+      await signOut(auth);
     } catch (err) {
-      if (String(err?.code || '').includes('requires-recent-login')) {
-        window.alert('For security, please sign out and sign back in, then delete your account again.');
-        return;
-      }
-      throw err;
+      console.warn('Sign out after deletion failed:', err);
     }
 
     setMember(null);
@@ -1162,7 +1181,6 @@ async function deleteCurrentUserAccount(member, setMember) {
     window.alert(friendlyAuthError(err));
   }
 }
-
 
 function StarMemoryButton({ member, title = 'Special Memory', note = '', icon = '⭐', imageUrl = '', sourceType = 'starred', sourceId = '' }) {
   const [saving, setSaving] = useState(false);
@@ -1246,6 +1264,12 @@ function alertText(alert = {}) {
   if (alert.title && alert.message) return `${alert.title} ${alert.message}`;
   if (alert.type === 'new-member-joined') {
     return `🐣 ${alert.memberName || alert.fromName || 'A new bubby'} joined Happy Little Bubbies.`;
+  }
+  if (alert.type === 'nursery-chat-comment') {
+    return `💬 ${alert.fromName || 'A little bubby'} commented on your Nursery Chat post.`;
+  }
+  if (alert.type === 'nursery-chat-reaction') {
+    return `${alert.reactionIcon || '🤗'} ${alert.fromName || 'A little bubby'} sent ${alert.reactionLabel || 'a reaction'} to your Nursery Chat post.`;
   }
   return alert.message || alert.title || 'New Little Alert';
 }
@@ -2350,6 +2374,247 @@ async function uploadBubbleGalleryPhoto(file, member, visibility) {
 }
 
 
+
+
+function NurseryChatReactions({ member, message }) {
+  const [reactionState, setReactionState] = useState({
+    hugCount: message?.hugCount || 0,
+    sunshineCount: message?.sunshineCount || 0,
+    cuddleCount: message?.cuddleCount || 0,
+    huggedBy: message?.huggedBy || [],
+    sunshineBy: message?.sunshineBy || [],
+    cuddledBy: message?.cuddledBy || [],
+  });
+  const [savingReaction, setSavingReaction] = useState('');
+
+  useEffect(() => {
+    if (!message?.id) return;
+
+    const unsubscribe = onSnapshot(doc(db, 'chatMessages', message.id), (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = snapshot.data();
+      setReactionState({
+        hugCount: data.hugCount || 0,
+        sunshineCount: data.sunshineCount || 0,
+        cuddleCount: data.cuddleCount || 0,
+        huggedBy: data.huggedBy || [],
+        sunshineBy: data.sunshineBy || [],
+        cuddledBy: data.cuddledBy || [],
+      });
+    });
+
+    return unsubscribe;
+  }, [message?.id]);
+
+  async function sendNurseryChatReaction(reactionType) {
+    if (!member?.uid || !message?.id || savingReaction) return;
+
+    const config = reactionConfig(reactionType);
+    const reactedBy = reactionState[config.byKey] || [];
+
+    if (reactedBy.includes(member.uid)) {
+      window.alert(`You already sent ${config.label} to this Nursery Chat post.`);
+      return;
+    }
+
+    setSavingReaction(reactionType);
+
+    try {
+      const nextBy = [...new Set([...reactedBy, member.uid])];
+      const nextCount = nextBy.length;
+
+      await updateDoc(doc(db, 'chatMessages', message.id), {
+        [config.byKey]: nextBy,
+        [config.countKey]: nextCount,
+        updatedAt: serverTimestamp(),
+      });
+
+      await addDoc(collection(db, 'chatMessageReactions'), {
+        messageId: message.id,
+        messageText: message.text || '',
+        messageImageUrl: message.imageUrl || '',
+        postOwnerUid: message.senderUid || '',
+        postOwnerName: message.senderName || 'Happy Little Bubby',
+        reactionType,
+        reactionIcon: config.icon,
+        reactionLabel: config.label,
+        fromUid: member.uid,
+        fromName: member.displayName || 'Happy Little Bubby',
+        createdAt: serverTimestamp(),
+      });
+
+      if (message.senderUid && message.senderUid !== member.uid) {
+        await addDoc(collection(db, 'littleAlerts'), {
+          toUid: message.senderUid,
+          toName: message.senderName || 'Happy Little Bubby',
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          type: 'nursery-chat-reaction',
+          reactionType,
+          reactionIcon: config.icon,
+          reactionLabel: config.label,
+          title: `${config.icon} ${config.label} on your Nursery Chat post`,
+          message: `${member.displayName || 'A little bubby'} sent ${config.label} to your Nursery Chat post.`,
+          sourceRoom: 'chat',
+          sourceId: message.id,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+    } catch (err) {
+      window.alert(err.message || 'Could not send reaction.');
+    } finally {
+      setSavingReaction('');
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <p className="muted" style={{ margin: '4px 0 8px', fontSize: 12 }}>
+        {reactionSummary(reactionState)}
+      </p>
+      <div className="social-action-row">
+        {Object.entries(REACTION_DEFINITIONS).map(([reactionType, config]) => {
+          const alreadySent = (reactionState[config.byKey] || []).includes(member.uid);
+          return (
+            <SoftActionButton
+              key={reactionType}
+              onClick={() => sendNurseryChatReaction(reactionType)}
+              disabled={alreadySent || savingReaction === reactionType}
+              title={config.meaning}
+            >
+              {alreadySent ? `${config.icon} ${config.sentLabel}` : `${config.icon} ${config.actionLabel}`}
+            </SoftActionButton>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+function NurseryChatComments({ member, message }) {
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!message?.id) return;
+
+    const commentsQuery = query(
+      collection(db, 'chatMessageComments'),
+      where('messageId', '==', message.id),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
+      setComments(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    });
+
+    return unsubscribe;
+  }, [message?.id]);
+
+  async function saveComment(event) {
+    event.preventDefault();
+    const cleanText = commentText.trim();
+    if (!cleanText || saving) return;
+
+    setSaving(true);
+    try {
+      await addDoc(collection(db, 'chatMessageComments'), {
+        messageId: message.id,
+        messageText: message.text || '',
+        messageImageUrl: message.imageUrl || '',
+        postOwnerUid: message.senderUid || '',
+        postOwnerName: message.senderName || 'Happy Little Bubby',
+        text: cleanText,
+        authorUid: member.uid,
+        authorName: member.displayName || 'Happy Little Bubby',
+        createdAt: serverTimestamp(),
+      });
+
+      if (message.senderUid && message.senderUid !== member.uid) {
+        await addDoc(collection(db, 'littleAlerts'), {
+          toUid: message.senderUid,
+          toName: message.senderName || 'Happy Little Bubby',
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          type: 'nursery-chat-comment',
+          title: '💬 New Nursery Chat comment',
+          message: `${member.displayName || 'A little bubby'} commented on your Nursery Chat post.`,
+          sourceRoom: 'chat',
+          sourceId: message.id,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      setCommentText('');
+      setOpen(true);
+    } catch (err) {
+      window.alert(err.message || 'Could not add comment.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div className="social-action-row">
+        <SoftActionButton onClick={() => setOpen((current) => !current)}>
+          💬 Comment {comments.length ? `(${comments.length})` : ''}
+        </SoftActionButton>
+      </div>
+
+      {open && (
+        <div
+          className="bubble"
+          style={{
+            marginTop: 10,
+            padding: 12,
+            background: 'rgba(255,255,255,.72)',
+          }}
+        >
+          {comments.length === 0 && (
+            <p className="muted" style={{ marginTop: 0 }}>
+              No comments yet. You can be the first little bubby to comment.
+            </p>
+          )}
+
+          {comments.map((comment) => (
+            <div
+              key={comment.id}
+              style={{
+                padding: '8px 0',
+                borderTop: '1px solid rgba(191,219,254,.55)',
+              }}
+            >
+              <strong>{comment.authorName || 'Happy Little Bubby'}</strong>
+              <p style={{ margin: '4px 0' }}>{comment.text}</p>
+              <small className="muted">{formatDate(comment.createdAt)}</small>
+            </div>
+          ))}
+
+          <form onSubmit={saveComment} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <input
+              value={commentText}
+              onChange={(event) => setCommentText(event.target.value)}
+              placeholder="Write a kind little comment..."
+              maxLength={400}
+              style={{ flex: '1 1 220px' }}
+            />
+            <button className="primary" type="submit" disabled={saving || !commentText.trim()}>
+              {saving ? 'Sending...' : 'Comment'}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function ChatRoom({ member, onPrivateMessageUser }) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -2493,6 +2758,21 @@ function ChatRoom({ member, onPrivateMessageUser }) {
                   caption="Happy Little Bubbies photo"
                 />
               )}
+
+              <NurseryChatReactions member={member} message={chat} />
+              <NurseryChatComments member={member} message={chat} />
+
+              <div className="social-action-row" style={{ marginTop: 8 }}>
+                <StarMemoryButton
+                  member={member}
+                  title="💬 Nursery Chat post"
+                  note={chat.text || 'A Nursery Chat post.'}
+                  icon="💬"
+                  imageUrl={chat.imageUrl || ''}
+                  sourceType="nursery-chat"
+                  sourceId={chat.id}
+                />
+              </div>
 
               {mine && (
                 <div className="post-meta">
@@ -4800,7 +5080,7 @@ function NotificationsRoom({ member, counts }) {
       const unread = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
         .filter((alert) => alert.toUid === member.uid && alert.read === false)
-        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type));
+        .filter((alert) => ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined', 'nursery-chat-comment', 'nursery-chat-reaction'].includes(alert.type));
       setThoughtAlerts(unread);
     });
     return unsubscribe;
@@ -8447,7 +8727,7 @@ function ThoughtBubblesRoom({ member }) {
 }
 
 
-function ProfileRoom({ member, setMember, setMember, counts }) {
+function ProfileRoom({ member, setMember, counts }) {
   const avatarOptions = ['🧸', '🍼', '🌈', '⭐', '☁️', '🐣', '🎀', '🦄', '🐻', '📚'];
   const colourOptions = ['Baby Blue', 'Pastel Pink', 'Lavender', 'Mint', 'Sunshine', 'Cotton Cloud'];
   const genderOptions = [
@@ -9585,7 +9865,7 @@ async function markThoughtReactionAlertsViewed(uid) {
     const snapshot = await getDocs(query(collection(db, 'littleAlerts'), orderBy('createdAt', 'desc')));
     const updates = snapshot.docs
       .map((alertDoc) => ({ id: alertDoc.id, ...alertDoc.data() }))
-      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined'].includes(alert.type) && alert.read === false)
+      .filter((alert) => alert.toUid === uid && ['thought-hug', 'thought-sunshine', 'thought-cuddle', 'thought-comment', 'friend-message-reply', 'private-message-reaction', 'friend-message-reaction', 'new-member-joined', 'nursery-chat-comment', 'nursery-chat-reaction'].includes(alert.type) && alert.read === false)
       .map((alert) => updateDoc(doc(db, 'littleAlerts', alert.id), {
         read: true,
         readAt: serverTimestamp(),
