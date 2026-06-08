@@ -1020,6 +1020,55 @@ function SoftActionButton({ children, onClick, disabled = false, danger = false,
 }
 
 
+async function addMemoryBookItem(member, payload = {}) {
+  if (!member?.uid) return;
+
+  const title = String(payload.title || 'Special Memory').trim() || 'Special Memory';
+  const note = String(payload.note || '').trim();
+
+  await addDoc(collection(db, 'memoryBook'), {
+    ownerUid: member.uid,
+    ownerName: member.displayName || 'Happy Little Bubby',
+    title,
+    note,
+    icon: payload.icon || '⭐',
+    imageUrl: payload.imageUrl || '',
+    sourceType: payload.sourceType || 'starred',
+    sourceId: payload.sourceId || '',
+    createdAt: serverTimestamp(),
+  });
+}
+
+function StarMemoryButton({ member, title = 'Special Memory', note = '', icon = '⭐', imageUrl = '', sourceType = 'starred', sourceId = '' }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function saveStarredMemory() {
+    if (saving || saved) return;
+    setSaving(true);
+    try {
+      await addMemoryBookItem(member, { title, note, icon, imageUrl, sourceType, sourceId });
+      setSaved(true);
+    } catch (err) {
+      window.alert(err.message || 'Could not add this to your Memory Book.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SoftActionButton
+      onClick={saveStarredMemory}
+      disabled={saving || saved}
+      title="Add this to your Memory Book"
+    >
+      {saved ? '⭐ Added to Memory Book' : saving ? 'Saving...' : '⭐ Add to Memory Book'}
+    </SoftActionButton>
+  );
+}
+
+
+
 
 const REACTION_DEFINITIONS = {
   hug: {
@@ -2049,6 +2098,18 @@ function GalleryThumbnail({ photo, onOpen, canRemove, onRemove }) {
       <p style={{ margin: '8px 0 10px', fontWeight: 900 }}>
         {photo.visibility === 'friends' ? '🧸 Friends eyes only' : '🌍 Everyone can see'}
       </p>
+
+      <div className="social-action-row" style={{ marginTop: 8 }}>
+          <StarMemoryButton
+            member={typeof member !== 'undefined' ? member : null}
+            title="📷 Favourite photo"
+            note="A photo you wanted to keep in your Memory Book."
+            icon="📷"
+            imageUrl={photo.imageUrl || ''}
+            sourceType="photo"
+            sourceId={photo.id}
+          />
+        </div>
 
       {canRemove && (
         <div className="social-action-row">
