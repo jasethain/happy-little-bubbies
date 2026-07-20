@@ -1,72 +1,150 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function myUserDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function isAdmin() { return signedIn() && myUserDoc().data.role in ['admin', 'helperBubby']; }
-    function isApproved() { return signedIn() && myUserDoc().data.status in ['approved', 'active']; }
 
+    function signedIn() {
+      return request.auth != null;
+    }
 
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
 
-    match /usernames/{usernameId} {
-      allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        myUserDoc().data.role == "admin";
     }
 
     match /users/{userId} {
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow read: if isApproved() || request.auth.uid == userId || isAdmin();
-      allow update: if request.auth.uid == userId || isAdmin();
-      allow delete: if isAdmin();
+      allow read: if signedIn();
+      allow create: if isOwner(userId) && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isOwner(userId) || isAdmin();
     }
 
-    match /inviteCodes/{codeId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
+    match /userProfiles/{userId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
-    match /chatMessages/{messageId} {
-      allow read: if isApproved();
-      allow create: if isApproved() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+    match /usernames/{nameId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() &&
+        (resource.data.uid == request.auth.uid || isAdmin()) &&
+        request.resource.data.uid == resource.data.uid;
+      allow delete: if signedIn() &&
+        (resource.data.uid == request.auth.uid || isAdmin());
     }
 
-    match /privateMessages/{messageId} {
-      allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid || isAdmin());
-      allow create: if isApproved() && request.resource.data.fromUid == request.auth.uid;
-      allow update, delete: if isAdmin();
+    match /presence/{userId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
-    match /reports/{reportId} {
-      allow create: if isApproved() && request.resource.data.reporterUid == request.auth.uid;
-      allow read, update, delete: if isAdmin();
+    match /memoryBook/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if signedIn() &&
+        (resource.data.ownerUid == request.auth.uid || isAdmin());
     }
 
-    match /mentorApplications/{docId} {
-      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if isApproved();
-      allow update, delete: if isAdmin();
+    match /thoughtBubbles/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() &&
+        (resource.data.ownerUid == request.auth.uid || isAdmin());
     }
 
-    match /storyRequests/{docId} {
-      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
-      allow update, delete: if isAdmin();
+    match /thoughtComments/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() &&
+        (resource.data.authorUid == request.auth.uid || isAdmin());
     }
 
-    match /swapListings/{docId} {
-      allow read: if isApproved();
-      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isAdmin() || resource.data.ownerUid == request.auth.uid;
-      allow delete: if isAdmin();
+    match /chatMessages/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() &&
+        (resource.data.senderUid == request.auth.uid || isAdmin());
+    }
+
+    match /privateMessages/{docId} {
+      allow read: if signedIn() &&
+        (resource.data.fromUid == request.auth.uid ||
+         resource.data.toUid == request.auth.uid ||
+         isAdmin());
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update, delete: if signedIn() &&
+        (resource.data.fromUid == request.auth.uid ||
+         resource.data.toUid == request.auth.uid ||
+         isAdmin());
     }
 
     match /friendRequests/{docId} {
-      allow create: if isApproved() && request.resource.data.ownerUid == request.auth.uid;
-      allow read: if signedIn() && (resource.data.ownerUid == request.auth.uid || isAdmin());
-      allow update, delete: if isAdmin();
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update, delete: if signedIn();
+    }
+
+    match /friends/{docId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn();
+    }
+
+    match /littleAlerts/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    // Invite codes use the code itself as the document ID.
+    // Signed-in users may fetch one exact code but cannot list all codes.
+    match /inviteCodes/{inviteId} {
+      allow get: if signedIn();
+      allow list: if isAdmin();
+
+      allow create: if signedIn() &&
+        request.resource.data.code == inviteId &&
+        request.resource.data.used == false &&
+        (request.resource.data.createdBy == request.auth.uid || isAdmin());
+
+      allow update: if isAdmin() ||
+        (
+          signedIn() &&
+          resource.data.code == inviteId &&
+          resource.data.used == false &&
+          request.resource.data.used == true &&
+          request.resource.data.usedBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['used', 'usedBy', 'usedAt'])
+        ) ||
+        (
+          signedIn() &&
+          resource.data.used == true &&
+          resource.data.usedBy == request.auth.uid &&
+          request.resource.data.used == false &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['used', 'usedBy', 'usedAt', 'registrationRolledBackAt'])
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    match /appSettings/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
   }
 }
