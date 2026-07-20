@@ -783,17 +783,83 @@ async function hasAnyUsers() {
   return !members.empty;
 }
 
+function inviteCodeDocumentId(inviteCode) {
+  return String(inviteCode || '').trim().toUpperCase();
+}
+
 async function verifyInviteCode(inviteCode) {
-  const cleanCode = inviteCode.trim().toUpperCase();
-  const inviteQuery = query(
-    collection(db, 'inviteCodes'),
-    where('code', '==', cleanCode),
-    where('used', '==', false),
-    limit(1)
-  );
-  const result = await getDocs(inviteQuery);
-  if (result.empty) return null;
-  return result.docs[0];
+  const cleanCode = inviteCodeDocumentId(inviteCode);
+  if (!cleanCode) return null;
+
+  // Invite codes are stored using the code itself as the Firestore document ID.
+  // This permits a secure single-document get without allowing users to list
+  // every active invite code in the collection.
+  const inviteRef = doc(db, 'inviteCodes', cleanCode);
+  const inviteSnapshot = await getDoc(inviteRef);
+
+  if (!inviteSnapshot.exists()) return null;
+
+  const inviteData = inviteSnapshot.data();
+  if (inviteData.code !== cleanCode || inviteData.used !== false) return null;
+
+  return inviteSnapshot;
+}
+
+async function rollbackFailedRegistration(user, cleanDisplayName = '', claimedInviteCode = '') {
+  const uid = user?.uid;
+  if (!uid) return;
+
+  try {
+    await deleteDoc(doc(db, 'presence', uid));
+  } catch (err) {
+    console.warn('Could not remove registration presence record:', err);
+  }
+
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+  } catch (err) {
+    console.warn('Could not remove registration profile:', err);
+  }
+
+  const displayNameKey = normaliseDisplayNameKey(cleanDisplayName);
+  if (displayNameKey) {
+    try {
+      const usernameRef = doc(db, 'usernames', displayNameKey);
+      const usernameSnapshot = await getDoc(usernameRef);
+      if (usernameSnapshot.exists() && usernameSnapshot.data()?.uid === uid) {
+        await deleteDoc(usernameRef);
+      }
+    } catch (err) {
+      console.warn('Could not release display name after failed registration:', err);
+    }
+  }
+
+  if (claimedInviteCode) {
+    try {
+      const inviteRef = doc(db, 'inviteCodes', inviteCodeDocumentId(claimedInviteCode));
+      await runTransaction(db, async (transaction) => {
+        const inviteSnapshot = await transaction.get(inviteRef);
+        if (!inviteSnapshot.exists()) return;
+        const inviteData = inviteSnapshot.data();
+        if (inviteData.usedBy !== uid) return;
+
+        transaction.update(inviteRef, {
+          used: false,
+          usedBy: '',
+          usedAt: null,
+          registrationRolledBackAt: serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      console.warn('Could not release invite code after failed registration:', err);
+    }
+  }
+
+  try {
+    await deleteUser(user);
+  } catch (err) {
+    console.warn('Could not remove Firebase Authentication account after failed registration:', err);
+  }
 }
 
 function usePresence(member) {
@@ -938,7 +1004,7 @@ async function initialiseFirestoreCollections(member) {
     createdAt: serverTimestamp(),
   }, { merge: true });
 
-  await setDoc(doc(db, 'inviteCodes', 'sample-invite'), {
+  await setDoc(doc(db, 'inviteCodes', 'BUBBIES-SAMPLE'), {
     code: 'BUBBIES-SAMPLE',
     used: false,
     createdAt: serverTimestamp(),
@@ -2161,8 +2227,13 @@ function AuthGate({ setMember }) {
     event.preventDefault();
     setError('');
 
+    let createdUser = null;
+    let reservedDisplayName = '';
+    let claimedInviteCode = '';
+
     try {
       const cleanEmail = email.trim().toLowerCase();
+      const cleanInviteCode = inviteCodeDocumentId(inviteCode);
 
       if (!biologicalAgeConfirmed) {
         throw new Error('Please confirm that you are over the biological age of 18 before joining.');
@@ -2171,6 +2242,16 @@ function AuthGate({ setMember }) {
       if (!communityAgreementAccepted) {
         throw new Error('Please agree to the Happy Little Bubbies kindness promise before joining.');
       }
+
+      if (!cleanEmail) {
+        throw new Error('Please enter your email address.');
+      }
+
+      // Option 1: create the Firebase Authentication account first. The new
+      // user is then signed in and can perform the tightly scoped invite-code
+      // lookup permitted by the Firestore rules.
+      const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      createdUser = credential.user;
 
       const usersAlreadyExist = await hasAnyUsers();
 
@@ -2184,36 +2265,38 @@ function AuthGate({ setMember }) {
         status = 'approved';
         badges = ['🧸 Helper', '☁️ Guardian of the Playroom', '🌈 Keeper of the Bubbles', '⭐ Bubble Keeper'];
       } else {
-        inviteDoc = await verifyInviteCode(inviteCode);
-        if (!inviteDoc) throw new Error('Invite code is invalid, already used, or not approved.');
+        inviteDoc = await verifyInviteCode(cleanInviteCode);
+        if (!inviteDoc) {
+          throw new Error('Invite code is invalid, already used, or not approved.');
+        }
       }
 
-      const { cleanName: cleanDisplayName, nameKey: displayNameLower } = await assertDisplayNameAvailable(displayName);
+      const { cleanName: cleanDisplayName, nameKey: displayNameLower } = await assertDisplayNameAvailable(
+        displayName,
+        createdUser.uid
+      );
+      reservedDisplayName = cleanDisplayName;
 
-      const credential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-      const user = credential.user;
-
-      await reserveDisplayNameForUser(user.uid, cleanDisplayName);
+      await reserveDisplayNameForUser(createdUser.uid, cleanDisplayName);
 
       const profile = {
-        uid: user.uid,
+        uid: createdUser.uid,
         email: cleanEmail,
         displayName: cleanDisplayName,
         displayNameLower,
         role,
         badges,
         status,
-        inviteCode: inviteCode.trim().toUpperCase() || 'FIRST-HELPER-BUBBY',
+        inviteCode: cleanInviteCode || 'FIRST-HELPER-BUBBY',
         biologicalAgeOver18Confirmed: true,
         communityKindnessAgreementAccepted: true,
         communityKindnessAgreementText: 'I agree to be nice to other bubbies, support and encourage each other, and be a good little bubby.',
         createdAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, 'users', user.uid), profile);
-      notifyAdminNewMember(profile);
-      await setDoc(doc(db, 'presence', user.uid), {
-        uid: user.uid,
+      await setDoc(doc(db, 'users', createdUser.uid), profile);
+      await setDoc(doc(db, 'presence', createdUser.uid), {
+        uid: createdUser.uid,
         email: cleanEmail,
         displayName: profile.displayName,
         online: true,
@@ -2221,15 +2304,34 @@ function AuthGate({ setMember }) {
       }, { merge: true });
 
       if (inviteDoc) {
-        await updateDoc(doc(db, 'inviteCodes', inviteDoc.id), {
-          used: true,
-          usedBy: user.uid,
-          usedAt: serverTimestamp(),
+        const inviteRef = doc(db, 'inviteCodes', inviteDoc.id);
+        await runTransaction(db, async (transaction) => {
+          const latestInvite = await transaction.get(inviteRef);
+          if (!latestInvite.exists()) {
+            throw new Error('Invite code is invalid, already used, or not approved.');
+          }
+
+          const latestInviteData = latestInvite.data();
+          if (latestInviteData.code !== cleanInviteCode || latestInviteData.used !== false) {
+            throw new Error('Invite code is invalid, already used, or not approved.');
+          }
+
+          transaction.update(inviteRef, {
+            used: true,
+            usedBy: createdUser.uid,
+            usedAt: serverTimestamp(),
+          });
         });
+        claimedInviteCode = cleanInviteCode;
       }
 
+      // Do not hold up registration if the optional admin notification fails.
+      notifyAdminNewMember(profile);
       setMember(profile);
     } catch (err) {
+      if (createdUser) {
+        await rollbackFailedRegistration(createdUser, reservedDisplayName || displayName, claimedInviteCode);
+      }
       setError(friendlyAuthError(err));
     }
   }
@@ -4038,7 +4140,7 @@ function FriendsRoom({ member }) {
     try {
       const code = makeInviteCode();
 
-      await addDoc(collection(db, 'inviteCodes'), {
+      await setDoc(doc(db, 'inviteCodes', inviteCodeDocumentId(code)), {
         code,
         used: false,
         createdAt: serverTimestamp(),
@@ -6769,8 +6871,33 @@ function AdminConsole({ member }) {
 
   useEffect(() => {
     const inviteQuery = query(collection(db, 'inviteCodes'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(inviteQuery, (snapshot) => {
-      setInviteCodes(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    const unsubscribe = onSnapshot(inviteQuery, async (snapshot) => {
+      const invites = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      setInviteCodes(invites);
+
+      // Older builds used random Firestore document IDs for invite codes.
+      // Migrate them automatically to code-based IDs so new registrations can
+      // securely fetch one exact invite without listing the collection.
+      const legacyInvites = invites.filter((invite) => {
+        const codeId = inviteCodeDocumentId(invite.code);
+        return codeId && invite.id !== codeId;
+      });
+
+      for (const invite of legacyInvites) {
+        const codeId = inviteCodeDocumentId(invite.code);
+        try {
+          const { id: legacyId, ...inviteData } = invite;
+          await setDoc(doc(db, 'inviteCodes', codeId), {
+            ...inviteData,
+            code: codeId,
+            migratedFromDocumentId: legacyId,
+            migratedAt: serverTimestamp(),
+          }, { merge: true });
+          await deleteDoc(doc(db, 'inviteCodes', invite.id));
+        } catch (err) {
+          console.warn(`Could not migrate invite code ${invite.code}:`, err);
+        }
+      }
     });
     return unsubscribe;
   }, []);
@@ -6895,7 +7022,7 @@ Important: this does not delete the Firebase Authentication login. To fully bloc
     if (!code) return;
 
     try {
-      await addDoc(collection(db, 'inviteCodes'), {
+      await setDoc(doc(db, 'inviteCodes', inviteCodeDocumentId(code)), {
         code,
         used: false,
         createdAt: serverTimestamp(),
