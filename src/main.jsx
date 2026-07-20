@@ -251,6 +251,48 @@ function formatDate(value) {
   return value.toDate().toLocaleString();
 }
 
+
+const PRESENCE_STALE_AFTER_MS = 70000;
+
+function presenceTimestampToMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function presenceIsFresh(presence, now = Date.now()) {
+  if (!presence?.online) return false;
+  const heartbeat = presenceTimestampToMillis(presence.updatedAt || presence.lastSeen);
+  return heartbeat > 0 && now - heartbeat <= PRESENCE_STALE_AFTER_MS;
+}
+
+function usePresenceOnline(presence) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return presenceIsFresh(presence, now);
+}
+
+async function setMemberPresenceOffline(member) {
+  if (!member?.uid) return;
+  try {
+    await setDoc(doc(db, 'presence', member.uid), {
+      online: false,
+      lastSeen: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (err) {
+    console.warn('Could not mark member offline:', err);
+  }
+}
+
 function friendlyAuthError(error) {
   const rawMessage = String(error?.message || error || 'Something went wrong.');
   const code = String(error?.code || '').toLowerCase();
@@ -864,39 +906,66 @@ async function rollbackFailedRegistration(user, cleanDisplayName = '', claimedIn
 
 function usePresence(member) {
   useEffect(() => {
-    if (!member?.uid) return;
+    if (!member?.uid) return undefined;
 
     const presenceRef = doc(db, 'presence', member.uid);
+    let stopped = false;
 
     const markOnline = async () => {
-      await setDoc(presenceRef, {
-        uid: member.uid,
-        email: member.email,
-        displayName: member.displayName,
-        online: true,
-        lastSeen: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      if (stopped || document.visibilityState === 'hidden') return;
+      try {
+        await setDoc(presenceRef, {
+          uid: member.uid,
+          email: member.email || '',
+          displayName: member.displayName || 'Happy Little Bubby',
+          online: true,
+          lastSeen: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Could not refresh online presence:', err);
+      }
     };
 
     const markOffline = async () => {
-      await setDoc(presenceRef, {
-        online: false,
-        lastSeen: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      try {
+        await setDoc(presenceRef, {
+          online: false,
+          lastSeen: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (err) {
+        console.warn('Could not mark offline presence:', err);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markOnline();
+      } else {
+        markOffline();
+      }
+    };
+
+    const handlePageHide = () => {
+      markOffline();
     };
 
     markOnline();
-    const interval = setInterval(markOnline, 30000);
-    window.addEventListener('beforeunload', markOffline);
+    const interval = window.setInterval(markOnline, 25000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handlePageHide);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('beforeunload', markOffline);
+      stopped = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handlePageHide);
       markOffline();
     };
-  }, [member?.uid]);
+  }, [member?.uid, member?.email, member?.displayName]);
 }
 
 function useNotificationCounts(member) {
@@ -4638,12 +4707,14 @@ function PresenceCard({ person, onRemove }) {
     return unsubscribe;
   }, [person?.uid]);
 
+  const online = usePresenceOnline(presence);
+
   return (
     <div className="bubble">
       <strong>{person?.displayName || 'Friend'}</strong>
       <p className="muted">Happy Little Bubbies member</p>
       <p className="muted">
-        {presence?.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
+        {online ? '🟢 Online now' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
       </p>
       {onRemove && (
         <button
@@ -5418,7 +5489,7 @@ function FriendButton({ friend, selected, onClick }) {
   }, [friend.chatId]);
 
   const unread = chat?.unreadBy?.includes(auth.currentUser?.uid);
-  const online = Boolean(presence?.online);
+  const online = usePresenceOnline(presence);
 
   return (
     <button
@@ -6853,6 +6924,16 @@ function NaughtyBabyAdminQueue({ member }) {
 }
 
 
+
+function AdminPresenceStatus({ presence }) {
+  const online = usePresenceOnline(presence);
+  return (
+    <p className="muted">
+      {online ? '🟢 Online now' : `⚪ Offline, last seen ${formatDate(presence?.lastSeen)}`}
+    </p>
+  );
+}
+
 function AdminConsole({ member }) {
   const [users, setUsers] = useState([]);
   const [inviteCodes, setInviteCodes] = useState([]);
@@ -7117,7 +7198,7 @@ Important: this does not delete the Firebase Authentication login. To fully bloc
               <div className="bubble" key={person.id}>
                 <strong>{person.displayName || account?.displayName || 'Member'}</strong>
                 <p className="muted">Happy Little Bubbies member</p>
-                <p className="muted">{person.online ? '🟢 Online' : `⚪ Offline, last seen ${formatDate(person.lastSeen)}`}</p>
+                <AdminPresenceStatus presence={person} />
                 <p className="muted">Role: {account?.role || 'member'} | Status: {account?.status || 'unknown'}</p>
                 <SoftActionButton
                   danger
@@ -10749,7 +10830,15 @@ function AppShell({ member, setMember }) {
             );
           })}
         </nav>
-        <button className="signout" onClick={() => signOut(auth)}>Sign out</button>
+        <button
+          className="signout"
+          onClick={async () => {
+            await setMemberPresenceOffline(member);
+            await signOut(auth);
+          }}
+        >
+          Sign out
+        </button>
       </aside>
 
       <section className="panel" key={room}>
