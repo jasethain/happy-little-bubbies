@@ -2972,40 +2972,47 @@ function NurseryChatReactions({ member, message }) {
       await updateDoc(doc(db, 'chatMessages', message.id), {
         [config.byKey]: nextBy,
         [config.countKey]: nextCount,
-        updatedAt: serverTimestamp(),
       });
 
-      await addDoc(collection(db, 'chatMessageReactions'), {
-        messageId: message.id,
-        messageText: message.text || '',
-        messageImageUrl: message.imageUrl || '',
-        postOwnerUid: message.senderUid || '',
-        postOwnerName: message.senderName || 'Happy Little Bubby',
-        reactionType,
-        reactionIcon: config.icon,
-        reactionLabel: config.label,
-        fromUid: member.uid,
-        fromName: member.displayName || 'Happy Little Bubby',
-        createdAt: serverTimestamp(),
-      });
-
-      if (message.senderUid && message.senderUid !== member.uid) {
-        await addDoc(collection(db, 'littleAlerts'), {
-          toUid: message.senderUid,
-          toName: message.senderName || 'Happy Little Bubby',
-          fromUid: member.uid,
-          fromName: member.displayName || 'Happy Little Bubby',
-          type: 'nursery-chat-reaction',
+      try {
+        await addDoc(collection(db, 'chatMessageReactions'), {
+          messageId: message.id,
+          messageText: message.text || '',
+          messageImageUrl: message.imageUrl || '',
+          postOwnerUid: message.senderUid || '',
+          postOwnerName: message.senderName || 'Happy Little Bubby',
           reactionType,
           reactionIcon: config.icon,
           reactionLabel: config.label,
-          title: `${config.icon} ${config.label} on your Nursery Chat post`,
-          message: `${member.displayName || 'A little bubby'} sent ${config.label} to your Nursery Chat post.`,
-          sourceRoom: 'chat',
-          sourceId: message.id,
-          read: false,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
           createdAt: serverTimestamp(),
         });
+      } catch (logError) {
+        console.warn('Nursery Chat reaction was saved, but the reaction log could not be created:', logError);
+      }
+
+      if (message.senderUid && message.senderUid !== member.uid) {
+        try {
+          await addDoc(collection(db, 'littleAlerts'), {
+            toUid: message.senderUid,
+            toName: message.senderName || 'Happy Little Bubby',
+            fromUid: member.uid,
+            fromName: member.displayName || 'Happy Little Bubby',
+            type: 'nursery-chat-reaction',
+            reactionType,
+            reactionIcon: config.icon,
+            reactionLabel: config.label,
+            title: `${config.icon} ${config.label} on your Nursery Chat post`,
+            message: `${member.displayName || 'A little bubby'} sent ${config.label} to your Nursery Chat post.`,
+            sourceRoom: 'chat',
+            sourceId: message.id,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (alertError) {
+          console.warn('Nursery Chat reaction was saved, but the Little Alert could not be created:', alertError);
+        }
       }
     } catch (err) {
       window.alert(err.message || 'Could not send reaction.');
@@ -3633,25 +3640,28 @@ function InboxRoom({ member, initialRecipient }) {
         transaction.update(messageRef, {
           [config.byKey]: [...reactedBy, member.uid],
           [config.countKey]: Number(data[config.countKey] || 0) + 1,
-          updatedAt: serverTimestamp(),
         });
       });
 
-      await addDoc(collection(db, 'littleAlerts'), {
-        type: config.alertTypePrivate,
-        reactionType,
-        reactionIcon: config.icon,
-        reactionLabel: config.label,
-        reactionMeaning: config.meaning,
-        toUid: messageOwnerUid,
-        fromUid: member.uid,
-        fromName: member.displayName || 'Happy Little Bubby',
-        messageId: msg.id,
-        messageText: msg.body || msg.lastMessage || '',
-        messageOwnerName,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
+      try {
+        await addDoc(collection(db, 'littleAlerts'), {
+          type: config.alertTypePrivate,
+          reactionType,
+          reactionIcon: config.icon,
+          reactionLabel: config.label,
+          reactionMeaning: config.meaning,
+          toUid: messageOwnerUid,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          messageId: msg.id,
+          messageText: msg.body || msg.lastMessage || '',
+          messageOwnerName,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      } catch (alertError) {
+        console.warn('Private-message reaction was saved, but the Little Alert could not be created:', alertError);
+      }
 
       setInboxStatus(`${config.label} sent to ${messageOwnerName}.`);
     } catch (err) {
@@ -4899,26 +4909,29 @@ function FriendChatRoom({ member }) {
         transaction.update(messageRef, {
           [config.byKey]: [...reactedBy, member.uid],
           [config.countKey]: Number(data[config.countKey] || 0) + 1,
-          updatedAt: serverTimestamp(),
         });
       });
 
-      await addDoc(collection(db, 'littleAlerts'), {
-        type: config.alertTypeFriend,
-        reactionType,
-        reactionIcon: config.icon,
-        reactionLabel: config.label,
-        reactionMeaning: config.meaning,
-        toUid: messageOwnerUid,
-        fromUid: member.uid,
-        fromName: member.displayName || 'Happy Little Bubby',
-        friendChatId: selectedFriend.chatId,
-        messageId: chat.id,
-        messageText: chat.text || (chat.imageUrl ? '📷 Photo' : chat.callUrl ? 'Call invitation' : 'Message'),
-        messageOwnerName,
-        read: false,
-        createdAt: serverTimestamp(),
-      });
+      try {
+        await addDoc(collection(db, 'littleAlerts'), {
+          type: config.alertTypeFriend,
+          reactionType,
+          reactionIcon: config.icon,
+          reactionLabel: config.label,
+          reactionMeaning: config.meaning,
+          toUid: messageOwnerUid,
+          fromUid: member.uid,
+          fromName: member.displayName || 'Happy Little Bubby',
+          friendChatId: selectedFriend.chatId,
+          messageId: chat.id,
+          messageText: chat.text || (chat.imageUrl ? '📷 Photo' : chat.callUrl ? 'Call invitation' : 'Message'),
+          messageOwnerName,
+          read: false,
+          createdAt: serverTimestamp(),
+        });
+      } catch (alertError) {
+        console.warn('Friend-message reaction was saved, but the Little Alert could not be created:', alertError);
+      }
 
       setStatus(`${config.label} sent to ${messageOwnerName}.`);
     } catch (err) {
@@ -9261,27 +9274,30 @@ function ThoughtBubblesRoom({ member }) {
         transaction.update(thoughtRef, {
           [config.byKey]: [...reactedBy, member.uid],
           [config.countKey]: Number(data[config.countKey] || 0) + 1,
-          updatedAt: serverTimestamp(),
         });
       });
 
       if (thought.ownerUid && thought.ownerUid !== member.uid) {
-        await addDoc(collection(db, 'littleAlerts'), {
-          type: config.alertTypeThought,
-          reactionType,
-          reactionIcon: config.icon,
-          reactionLabel: config.label,
-          reactionMeaning: config.meaning,
-          toUid: thought.ownerUid,
-          fromUid: member.uid,
-          fromName: member.displayName || 'Happy Little Bubby',
-          thoughtId: thought.id,
-          thoughtTitle: thought.title || 'Thought Bubble',
-          thoughtText: thought.text || '',
-          thoughtImageUrl: thought.imageUrl || '',
-          read: false,
-          createdAt: serverTimestamp(),
-        });
+        try {
+          await addDoc(collection(db, 'littleAlerts'), {
+            type: config.alertTypeThought,
+            reactionType,
+            reactionIcon: config.icon,
+            reactionLabel: config.label,
+            reactionMeaning: config.meaning,
+            toUid: thought.ownerUid,
+            fromUid: member.uid,
+            fromName: member.displayName || 'Happy Little Bubby',
+            thoughtId: thought.id,
+            thoughtTitle: thought.title || 'Thought Bubble',
+            thoughtText: thought.text || '',
+            thoughtImageUrl: thought.imageUrl || '',
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (alertError) {
+          console.warn('Thought reaction was saved, but the Little Alert could not be created:', alertError);
+        }
       }
 
       setStatus(`${config.label} sent.`);
